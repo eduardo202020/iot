@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "iot",
-    "slug": "iot",
+    "name": "MuseIQ",
+    "slug": "museiq",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "iot",
+    "scheme": "museiq",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
