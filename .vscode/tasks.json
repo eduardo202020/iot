@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Expo Dev Server",
+      "type": "shell",
+      "command": "npm",
+      "args": ["start"],
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Run on Web",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "web"],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Run on Android",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "android"],
+      "isBackground": false,
+      "problemMatcher": []
+    },
+    {
+      "label": "Run on iOS",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "ios"],
+      "isBackground": false,
+      "problemMatcher": []
+    }
+  ]
+}
