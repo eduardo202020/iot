@@ -1,12 +1,12 @@
-import { StyleSheet, View, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Image } from 'expo-image';
+import { BeaconList } from '@/components/beacon-list';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { BeaconList } from '@/components/beacon-list';
+import { Colors } from '@/constants/theme';
 import { useBleScanner } from '@/hooks/use-ble-scanner';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
+import { Image } from 'expo-image';
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
