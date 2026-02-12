@@ -11,11 +11,24 @@ Esta es una aplicación [Expo](https://expo.dev) para escanear beacons BLE de sa
   - Distancia estimada en metros
   - Estado de batería (mV)
   - Calidad de señal (Excelente/Buena/Regular/Débil)
+  - **Estado del beacon** (Activo/Reposo)
 - **Información del beacon**:
   - ID de sala (Room ID)
   - Número de beacon
   - Versión de firmware
   - Dirección MAC del dispositivo
+
+### Ciclo de Transmisión del Beacon
+
+Los beacons transmiten con el siguiente patrón:
+- **Intervalo**: Cada 400 ms
+- **Tiempo activo**: ~1 ms (transmitiendo datos)
+- **Tiempo en reposo**: ~399 ms (ahorro de energía)
+
+La app detecta automáticamente el estado:
+- 🟢 **Activo**: Beacon transmitiendo (< 1s desde última señal)
+- ⚪ **Reposo**: Beacon en ciclo de ahorro de energía
+- Los beacons se eliminan si no se detectan por 15 segundos
 
 ### Formato de datos BLE
 

@@ -14,7 +14,8 @@
         "NSBluetoothAlwaysUsageDescription": "MuseIQ necesita Bluetooth para detectar beacons de salas cercanas.",
         "NSBluetoothPeripheralUsageDescription": "MuseIQ necesita Bluetooth para detectar beacons de salas cercanas.",
         "NSLocationWhenInUseUsageDescription": "MuseIQ necesita tu ubicación para escanear dispositivos Bluetooth cercanos."
-      }
+      },
+      "bundleIdentifier": "com.jguevaral.museiq"
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +31,10 @@
         "BLUETOOTH_SCAN",
         "BLUETOOTH_CONNECT",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT"
       ]
     },
     "web": {

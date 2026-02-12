@@ -9,13 +9,14 @@ import { FlatList, StyleSheet, View } from 'react-native';
 interface BeaconListProps {
     beacons: BeaconData[];
     isScanning: boolean;
+    distanceN: number;
 }
 
 interface BeaconCardProps {
     beacon: BeaconData;
 }
 
-function BeaconCard({ beacon }: BeaconCardProps) {
+function BeaconCard({ beacon, distanceN }: BeaconCardProps & { distanceN: number }) {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
 
@@ -37,17 +38,14 @@ function BeaconCard({ beacon }: BeaconCardProps) {
     const signal = getSignalQuality(beacon.rssi);
     const battery = getBatteryStatus(beacon.battery);
 
-    // Calcular distancia aproximada (fórmula básica)
-    const estimateDistance = (rssi: number, txPower: number): string => {
-        const ratio = rssi / txPower;
-        if (ratio < 1.0) {
-            return Math.pow(ratio, 10).toFixed(1);
-        }
-        const distance = 0.89976 * Math.pow(ratio, 7.7095) + 0.111;
-        return distance.toFixed(1);
+    // Calcular distancia usando Tx Power calibrado @1m
+    // n = 2.5 para espacio libre con mejor ajuste en distancias mayores
+    const estimateDistance = (rssi: number, txPower: number, n: number = 2.5): string => {
+        const distance = Math.pow(10, (txPower - rssi) / (10 * n));
+        return Math.max(0.1, distance).toFixed(1);
     };
 
-    const distance = estimateDistance(beacon.rssi, beacon.txPower);
+    const distance = estimateDistance(beacon.rssi, beacon.txPower, distanceN);
 
     return (
         <ThemedView style={[styles.card, { borderColor: colors.border }]}>
@@ -59,7 +57,29 @@ function BeaconCard({ beacon }: BeaconCardProps) {
                         <ThemedText type="defaultSemiBold" style={styles.roomId}>
                             {beacon.roomId}
                         </ThemedText>
-                        <ThemedText style={styles.beaconNode}>Beacon #{beacon.beaconNode}</ThemedText>
+                        <View style={styles.beaconNodeRow}>
+                            <ThemedText style={styles.beaconNode}>Beacon #{beacon.beaconNode}</ThemedText>
+                            {/* Indicador de estado */}
+                            <View style={styles.statusIndicator}>
+                                <View
+                                    style={[
+                                        styles.statusDot,
+                                        {
+                                            backgroundColor: beacon.isActive ? '#10B981' : '#9CA3AF',
+                                        },
+                                    ]}
+                                />
+                                <ThemedText
+                                    style={[
+                                        styles.statusText,
+                                        {
+                                            color: beacon.isActive ? '#10B981' : '#9CA3AF',
+                                        },
+                                    ]}>
+                                    {beacon.isActive ? 'Activo' : 'Reposo'}
+                                </ThemedText>
+                            </View>
+                        </View>
                     </View>
                 </View>
                 <View style={[styles.signalBadge, { backgroundColor: signal.color + '20' }]}>
@@ -112,7 +132,7 @@ function BeaconCard({ beacon }: BeaconCardProps) {
     );
 }
 
-export function BeaconList({ beacons, isScanning }: BeaconListProps) {
+export function BeaconList({ beacons, isScanning, distanceN }: BeaconListProps) {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
 
@@ -140,7 +160,7 @@ export function BeaconList({ beacons, isScanning }: BeaconListProps) {
         <FlatList
             data={beacons}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <BeaconCard beacon={item} />}
+            renderItem={({ item }) => <BeaconCard beacon={item} distanceN={distanceN} />}
             contentContainerStyle={styles.listContainer}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
@@ -173,9 +193,28 @@ const styles = StyleSheet.create({
     roomId: {
         fontSize: 18,
     },
+    beaconNodeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
     beaconNode: {
         fontSize: 12,
         opacity: 0.6,
+    },
+    statusIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    statusDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    statusText: {
+        fontSize: 10,
+        fontWeight: '600',
     },
     signalBadge: {
         flexDirection: 'row',

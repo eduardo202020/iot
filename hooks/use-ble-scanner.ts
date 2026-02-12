@@ -1,16 +1,25 @@
 import type { BeaconData } from '@/types/beacon';
 import { BEACON_SERVICE_UUID } from '@/types/beacon';
-import { useCallback, useEffect, useState } from 'react';
+import { Buffer } from 'buffer';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, PermissionsAndroid, Platform } from 'react-native';
 import { BleManager, Device, State } from 'react-native-ble-plx';
 
 const bleManager = new BleManager();
 
-export function useBleScanner() {
+interface BleScannerOptions {
+    defaultTxPowerDbm?: number;
+    rssiWindowSize?: number;
+}
+
+export function useBleScanner(options: BleScannerOptions = {}) {
+    const defaultTxPowerDbm = options.defaultTxPowerDbm ?? -8;
+    const rssiWindowSize = options.rssiWindowSize ?? 5;
     const [beacons, setBeacons] = useState<Map<string, BeaconData>>(new Map());
     const [isScanning, setIsScanning] = useState(false);
     const [bleState, setBleState] = useState<State | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const rssiHistoryRef = useRef<Map<string, number[]>>(new Map());
 
     // Parsear Service Data del beacon
     const parseServiceData = useCallback((serviceData: string): Partial<BeaconData> | null => {
@@ -66,18 +75,29 @@ export function useBleScanner() {
 
         if (!parsedData || !parsedData.id) return;
 
+        const rawRssi = device.rssi ?? -100;
+        const history = rssiHistoryRef.current.get(parsedData.id) ?? [];
+        const nextHistory = [...history, rawRssi].slice(-rssiWindowSize);
+        rssiHistoryRef.current.set(parsedData.id, nextHistory);
+
+        const smoothedRssi = Math.round(
+            nextHistory.reduce((sum, value) => sum + value, 0) / nextHistory.length
+        );
+
         const beaconData: BeaconData = {
             id: parsedData.id,
             roomId: parsedData.roomId || '',
             beaconNode: parsedData.beaconNode || 0,
-            rssi: device.rssi || -100,
-            txPower: device.txPowerLevel || -12,
+            rssi: smoothedRssi,
+            // Usar valor calibrado (RSSI @1m) desde la UI
+            txPower: defaultTxPowerDbm,
             firmwareVersion: parsedData.firmwareVersion || '0.0',
             firmwareMajor: parsedData.firmwareMajor || 0,
             firmwareMinor: parsedData.firmwareMinor || 0,
             battery: parsedData.battery || 0,
             lastSeen: Date.now(),
             deviceAddress: device.id,
+            isActive: true, // Acabamos de recibir datos
         };
 
         setBeacons((prev) => {
@@ -85,7 +105,7 @@ export function useBleScanner() {
             updated.set(beaconData.id, beaconData);
             return updated;
         });
-    }, [parseServiceData]);
+    }, [defaultTxPowerDbm, parseServiceData, rssiWindowSize]);
 
     // Solicitar permisos en Android
     const requestAndroidPermissions = async (): Promise<boolean> => {
@@ -176,7 +196,7 @@ export function useBleScanner() {
         setIsScanning(false);
     }, []);
 
-    // Limpiar beacons antiguos (no vistos en los últimos 5 segundos)
+    // Actualizar estado de beacons (activo/reposo) y limpiar antiguos
     useEffect(() => {
         const interval = setInterval(() => {
             const now = Date.now();
@@ -185,15 +205,22 @@ export function useBleScanner() {
                 let hasChanges = false;
 
                 for (const [id, beacon] of updated.entries()) {
-                    if (now - beacon.lastSeen > 5000) {
+                    // Eliminar beacons no vistos en 10 segundos (considerado desconectado)
+                    if (now - beacon.lastSeen > 10000) {
                         updated.delete(id);
+                        rssiHistoryRef.current.delete(id);
+                        hasChanges = true;
+                    }
+                    // Marcar como inactivo si no se ha visto en >800ms (ciclo de reposo a 500ms)
+                    else if (beacon.isActive && now - beacon.lastSeen > 800) {
+                        updated.set(id, { ...beacon, isActive: false });
                         hasChanges = true;
                     }
                 }
 
                 return hasChanges ? updated : prev;
             });
-        }, 1000);
+        }, 250); // Verificar cada 250ms para detectar reposo con intervalo 500ms
 
         return () => clearInterval(interval);
     }, []);

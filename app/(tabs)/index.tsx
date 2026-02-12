@@ -6,13 +6,21 @@ import { Colors } from '@/constants/theme';
 import { useBleScanner } from '@/hooks/use-ble-scanner';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Image } from 'expo-image';
+import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { beacons, isScanning, bleState, error, startScanning, stopScanning } = useBleScanner();
+  const [distanceN, setDistanceN] = useState(2.5);
+  const [txPowerFallback, setTxPowerFallback] = useState(-52);
+  const [rssiWindowSize, setRssiWindowSize] = useState(5);
+
+  const { beacons, isScanning, bleState, error, startScanning, stopScanning } = useBleScanner({
+    defaultTxPowerDbm: txPowerFallback,
+    rssiWindowSize,
+  });
 
   const handleScanToggle = () => {
     if (isScanning) {
@@ -82,10 +90,71 @@ export default function HomeScreen() {
             </>
           )}
         </TouchableOpacity>
+
+        {/* Ajustes de distancia */}
+        <ThemedView style={[styles.settingsCard, { borderColor: colors.border }]}>
+          <View style={styles.settingsHeader}>
+            <IconSymbol name="slider.horizontal.3" size={18} color={colors.icon} />
+            <ThemedText type="defaultSemiBold" style={styles.settingsTitle}>
+              Ajustes de distancia
+            </ThemedText>
+          </View>
+
+          <View style={styles.settingRow}>
+            <ThemedText style={styles.settingLabel}>Factor n</ThemedText>
+            <View style={styles.settingControls}>
+              <TouchableOpacity
+                style={[styles.settingButton, { borderColor: colors.border }]}
+                onPress={() => setDistanceN((prev) => Math.max(2.0, Number((prev - 0.1).toFixed(1))))}>
+                <ThemedText style={styles.settingButtonText}>-</ThemedText>
+              </TouchableOpacity>
+              <ThemedText style={styles.settingValue}>{distanceN.toFixed(1)}</ThemedText>
+              <TouchableOpacity
+                style={[styles.settingButton, { borderColor: colors.border }]}
+                onPress={() => setDistanceN((prev) => Math.min(3.0, Number((prev + 0.1).toFixed(1))))}>
+                <ThemedText style={styles.settingButtonText}>+</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.settingRow}>
+            <ThemedText style={styles.settingLabel}>Tx Power @1m</ThemedText>
+            <View style={styles.settingControls}>
+              <TouchableOpacity
+                style={[styles.settingButton, { borderColor: colors.border }]}
+                onPress={() => setTxPowerFallback((prev) => Math.max(-80, prev - 1))}>
+                <ThemedText style={styles.settingButtonText}>-</ThemedText>
+              </TouchableOpacity>
+              <ThemedText style={styles.settingValue}>{txPowerFallback} dBm</ThemedText>
+              <TouchableOpacity
+                style={[styles.settingButton, { borderColor: colors.border }]}
+                onPress={() => setTxPowerFallback((prev) => Math.min(-30, prev + 1))}>
+                <ThemedText style={styles.settingButtonText}>+</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.settingRow}>
+            <ThemedText style={styles.settingLabel}>Suavizado RSSI</ThemedText>
+            <View style={styles.settingControls}>
+              <TouchableOpacity
+                style={[styles.settingButton, { borderColor: colors.border }]}
+                onPress={() => setRssiWindowSize((prev) => Math.max(3, prev - 1))}>
+                <ThemedText style={styles.settingButtonText}>-</ThemedText>
+              </TouchableOpacity>
+              <ThemedText style={styles.settingValue}>{rssiWindowSize} lecturas</ThemedText>
+              <TouchableOpacity
+                style={[styles.settingButton, { borderColor: colors.border }]}
+                onPress={() => setRssiWindowSize((prev) => Math.min(10, prev + 1))}>
+                <ThemedText style={styles.settingButtonText}>+</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ThemedView>
       </ThemedView>
 
       {/* Lista de beacons */}
-      <BeaconList beacons={beacons} isScanning={isScanning} />
+      <BeaconList beacons={beacons} isScanning={isScanning} distanceN={distanceN} />
     </SafeAreaView>
   );
 }
@@ -146,5 +215,48 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  settingsCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  settingsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  settingsTitle: {
+    fontSize: 14,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  settingLabel: {
+    fontSize: 13,
+    opacity: 0.7,
+  },
+  settingControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  settingButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  settingButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  settingValue: {
+    minWidth: 70,
+    textAlign: 'center',
+    fontSize: 13,
   },
 });

@@ -22,6 +22,7 @@ export interface BeaconData {
     // Metadatos
     lastSeen: number; // Timestamp de última detección
     deviceAddress: string; // Dirección MAC del dispositivo BLE
+    isActive: boolean; // Si está transmitiendo actualmente (< 1s desde última detección)
 }
 
 export interface BeaconServiceData {
