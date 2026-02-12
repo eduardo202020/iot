@@ -1,8 +1,36 @@
-# Welcome to your Expo app 👋
+# MuseIQ - BLE Beacon Scanner
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Esta es una aplicación [Expo](https://expo.dev) para escanear beacons BLE de salas.
 
-## Get started
+## Funcionalidades
+
+### Scanner BLE (A - Básico) ✅
+- **Escaneo en tiempo real** de beacons BLE cercanos
+- **Visualización de métricas**:
+  - RSSI (intensidad de señal en dBm)
+  - Distancia estimada en metros
+  - Estado de batería (mV)
+  - Calidad de señal (Excelente/Buena/Regular/Débil)
+- **Información del beacon**:
+  - ID de sala (Room ID)
+  - Número de beacon
+  - Versión de firmware
+  - Dirección MAC del dispositivo
+
+### Formato de datos BLE
+
+El scanner detecta beacons que envían datos en el siguiente formato:
+
+**Service UUID**: `0000A00A-0000-1000-8000-00805F9B34FB`
+
+**Service Data**:
+```
+Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) + Battery mV (2 bytes little-endian)
+```
+
+**Ejemplo**: `SALA_2` + `0x02` + `0x01` + `0x00` + `0x740E` (3700 mV)
+
+## Comenzar
 
 1. Install dependencies
 
