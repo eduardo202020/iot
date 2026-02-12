@@ -30,6 +30,18 @@
       "problemMatcher": []
     },
     {
+      "label": "Build Dev Client (Android)",
+      "type": "shell",
+      "command": "npx",
+      "args": ["expo", "run:android"],
+      "isBackground": false,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
       "label": "Run on iOS",
       "type": "shell",
       "command": "npm",
