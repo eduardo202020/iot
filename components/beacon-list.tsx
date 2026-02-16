@@ -10,6 +10,7 @@ interface BeaconListProps {
     beacons: BeaconData[];
     isScanning: boolean;
     distanceN: number;
+    scrollEnabled?: boolean;
 }
 
 interface BeaconCardProps {
@@ -101,12 +102,12 @@ function BeaconCard({ beacon, distanceN }: BeaconCardProps & { distanceN: number
                     </View>
                 </View>
 
-                {/* Distancia estimada */}
+                {/* TX Power Payload (información) */}
                 <View style={styles.metric}>
-                    <IconSymbol name="ruler" size={20} color={colors.icon} />
+                    <IconSymbol name="bolt.fill" size={20} color={colors.icon} />
                     <View style={styles.metricText}>
-                        <ThemedText style={styles.metricLabel}>Distancia</ThemedText>
-                        <ThemedText type="defaultSemiBold">~{distance} m</ThemedText>
+                        <ThemedText style={styles.metricLabel}>TX Power</ThemedText>
+                        <ThemedText type="defaultSemiBold">{beacon.txPowerPayload} dBm</ThemedText>
                     </View>
                 </View>
 
@@ -132,7 +133,7 @@ function BeaconCard({ beacon, distanceN }: BeaconCardProps & { distanceN: number
     );
 }
 
-export function BeaconList({ beacons, isScanning, distanceN }: BeaconListProps) {
+export function BeaconList({ beacons, isScanning, distanceN, scrollEnabled = true }: BeaconListProps) {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
 
@@ -163,6 +164,7 @@ export function BeaconList({ beacons, isScanning, distanceN }: BeaconListProps) 
             renderItem={({ item }) => <BeaconCard beacon={item} distanceN={distanceN} />}
             contentContainerStyle={styles.listContainer}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
+            scrollEnabled={scrollEnabled}
         />
     );
 }

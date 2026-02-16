@@ -11,7 +11,8 @@ export interface BeaconData {
 
     // Datos de señal
     rssi: number; // Intensidad de señal en dBm (ej: -65)
-    txPower: number; // Potencia de transmisión en dBm (ej: -12)
+    txPower: number; // Potencia de transmisión calibrada @1m para cálculo de distancia (ej: -52)
+    txPowerPayload: number; // TX Power extraído del payload del beacon (ej: -12)
 
     // Información del dispositivo
     firmwareVersion: string; // Versión del firmware (ej: "1.0")

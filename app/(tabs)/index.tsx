@@ -1,4 +1,5 @@
 import { BeaconList } from '@/components/beacon-list';
+import { RoomMap } from '@/components/room-map';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -6,9 +7,43 @@ import { Colors } from '@/constants/theme';
 import { useBleScanner } from '@/hooks/use-ble-scanner';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Image } from 'expo-image';
-import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const estimateDistanceMeters = (rssi: number, txPower: number, n: number): number => {
+  const distance = Math.pow(10, (txPower - rssi) / (10 * n));
+  return Math.max(0.1, distance);
+};
+
+const getZoneFromDistance = (distanceMeters: number): number => {
+  if (distanceMeters <= 0.5) return 1;
+  if (distanceMeters <= 1) return 2;
+  if (distanceMeters <= 1.5) return 3;
+  return 0;
+};
+
+// Hysteresis: requiere 3 confirmaciones consecutivas antes de cambiar de zona
+const applyZoneHysteresis = (newZone: number, previousZone: number, zoneHistoryRef: React.MutableRefObject<number[]>): number => {
+  const confirmationsNeeded = 3;
+
+  if (newZone === previousZone) {
+    zoneHistoryRef.current = [newZone];
+    return newZone;
+  }
+
+  if (zoneHistoryRef.current[0] !== newZone) {
+    zoneHistoryRef.current = [newZone];
+    return previousZone;
+  }
+
+  zoneHistoryRef.current.push(newZone);
+  if (zoneHistoryRef.current.length >= confirmationsNeeded) {
+    return newZone;
+  }
+
+  return previousZone;
+};
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
@@ -16,11 +51,37 @@ export default function HomeScreen() {
   const [distanceN, setDistanceN] = useState(2.5);
   const [txPowerFallback, setTxPowerFallback] = useState(-52);
   const [rssiWindowSize, setRssiWindowSize] = useState(5);
+  const [currentZone, setCurrentZone] = useState(0);
+  const [progressZone, setProgressZone] = useState(0);
+  const [distanceMeters, setDistanceMeters] = useState<number | null>(null);
+  const zoneHistoryRef = useRef<number[]>([]);
 
   const { beacons, isScanning, bleState, error, startScanning, stopScanning } = useBleScanner({
     defaultTxPowerDbm: txPowerFallback,
     rssiWindowSize,
   });
+
+  useEffect(() => {
+    if (beacons.length === 0) {
+      setCurrentZone(0);
+      setDistanceMeters(null);
+      zoneHistoryRef.current = [];
+      return;
+    }
+
+    const strongest = beacons[0];
+    const distanceMeters = estimateDistanceMeters(strongest.rssi, strongest.txPower, distanceN);
+    const rawZone = getZoneFromDistance(distanceMeters);
+
+    // Aplicar hysteresis: requiere 3 confirmaciones antes de cambiar zona
+    const confirmedZone = applyZoneHysteresis(rawZone, currentZone, zoneHistoryRef);
+
+    setCurrentZone(confirmedZone);
+    setDistanceMeters(distanceMeters);
+    if (confirmedZone > 0) {
+      setProgressZone((prev) => Math.max(prev, confirmedZone));
+    }
+  }, [beacons, distanceN, currentZone]);
 
   const handleScanToggle = () => {
     if (isScanning) {
@@ -32,129 +93,138 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <ThemedView style={styles.header}>
-        <View style={styles.headerTop}>
-          <Image source={require('@/assets/images/logo.png')} style={styles.logo} />
-          <View style={styles.headerText}>
-            <ThemedText type="title" style={styles.title}>
-              MuseIQ Scanner v2
-            </ThemedText>
-            <ThemedText style={styles.subtitle}>
-              {beacons.length} {beacons.length === 1 ? 'beacon detectado' : 'beacons detectados'}
-            </ThemedText>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <ThemedView style={styles.header}>
+          <View style={styles.headerTop}>
+            <Image source={require('@/assets/images/logo.png')} style={styles.logo} />
+            <View style={styles.headerText}>
+              <ThemedText type="title" style={styles.title}>
+                MuseIQ Scanner v2
+              </ThemedText>
+              <ThemedText style={styles.subtitle}>
+                {beacons.length} {beacons.length === 1 ? 'beacon detectado' : 'beacons detectados'}
+              </ThemedText>
+            </View>
           </View>
-        </View>
 
-        {/* Estado de Bluetooth */}
-        {bleState && bleState !== 'PoweredOn' && (
-          <View style={[styles.bleWarning, { backgroundColor: colors.warning + '20' }]}>
-            <IconSymbol name="exclamationmark.triangle" size={20} color={colors.warning} />
-            <ThemedText style={{ color: colors.warning, fontSize: 13 }}>
-              {bleState === 'PoweredOff'
-                ? 'Bluetooth está apagado'
-                : 'Bluetooth no disponible'}
-            </ThemedText>
-          </View>
-        )}
-
-        {/* Error */}
-        {error && (
-          <View style={[styles.errorBanner, { backgroundColor: '#EF4444' + '20' }]}>
-            <IconSymbol name="xmark.circle" size={20} color="#EF4444" />
-            <ThemedText style={{ color: '#EF4444', fontSize: 13, flex: 1 }}>
-              {error}
-            </ThemedText>
-          </View>
-        )}
-
-        {/* Botón de escaneo */}
-        <TouchableOpacity
-          style={[
-            styles.scanButton,
-            {
-              backgroundColor: isScanning ? colors.danger : colors.tint,
-            },
-          ]}
-          onPress={handleScanToggle}
-          disabled={bleState !== 'PoweredOn'}>
-          {isScanning ? (
-            <>
-              <ActivityIndicator color="#fff" />
-              <ThemedText style={styles.scanButtonText}>Detener Escaneo</ThemedText>
-            </>
-          ) : (
-            <>
-              <IconSymbol name="antenna.radiowaves.left.and.right" size={20} color="#fff" />
-              <ThemedText style={styles.scanButtonText}>Iniciar Escaneo</ThemedText>
-            </>
+          {/* Estado de Bluetooth */}
+          {bleState && bleState !== 'PoweredOn' && (
+            <View style={[styles.bleWarning, { backgroundColor: colors.warning + '20' }]}>
+              <IconSymbol name="exclamationmark.triangle" size={20} color={colors.warning} />
+              <ThemedText style={{ color: colors.warning, fontSize: 13 }}>
+                {bleState === 'PoweredOff'
+                  ? 'Bluetooth está apagado'
+                  : 'Bluetooth no disponible'}
+              </ThemedText>
+            </View>
           )}
-        </TouchableOpacity>
 
-        {/* Ajustes de distancia */}
-        <ThemedView style={[styles.settingsCard, { borderColor: colors.border }]}>
-          <View style={styles.settingsHeader}>
-            <IconSymbol name="slider.horizontal.3" size={18} color={colors.icon} />
-            <ThemedText type="defaultSemiBold" style={styles.settingsTitle}>
-              Ajustes de distancia
-            </ThemedText>
-          </View>
-
-          <View style={styles.settingRow}>
-            <ThemedText style={styles.settingLabel}>Factor n</ThemedText>
-            <View style={styles.settingControls}>
-              <TouchableOpacity
-                style={[styles.settingButton, { borderColor: colors.border }]}
-                onPress={() => setDistanceN((prev) => Math.max(2.0, Number((prev - 0.1).toFixed(1))))}>
-                <ThemedText style={styles.settingButtonText}>-</ThemedText>
-              </TouchableOpacity>
-              <ThemedText style={styles.settingValue}>{distanceN.toFixed(1)}</ThemedText>
-              <TouchableOpacity
-                style={[styles.settingButton, { borderColor: colors.border }]}
-                onPress={() => setDistanceN((prev) => Math.min(3.0, Number((prev + 0.1).toFixed(1))))}>
-                <ThemedText style={styles.settingButtonText}>+</ThemedText>
-              </TouchableOpacity>
+          {/* Error */}
+          {error && (
+            <View style={[styles.errorBanner, { backgroundColor: '#EF4444' + '20' }]}>
+              <IconSymbol name="xmark.circle" size={20} color="#EF4444" />
+              <ThemedText style={{ color: '#EF4444', fontSize: 13, flex: 1 }}>
+                {error}
+              </ThemedText>
             </View>
-          </View>
+          )}
 
-          <View style={styles.settingRow}>
-            <ThemedText style={styles.settingLabel}>Tx Power @1m</ThemedText>
-            <View style={styles.settingControls}>
-              <TouchableOpacity
-                style={[styles.settingButton, { borderColor: colors.border }]}
-                onPress={() => setTxPowerFallback((prev) => Math.max(-80, prev - 1))}>
-                <ThemedText style={styles.settingButtonText}>-</ThemedText>
-              </TouchableOpacity>
-              <ThemedText style={styles.settingValue}>{txPowerFallback} dBm</ThemedText>
-              <TouchableOpacity
-                style={[styles.settingButton, { borderColor: colors.border }]}
-                onPress={() => setTxPowerFallback((prev) => Math.min(-30, prev + 1))}>
-                <ThemedText style={styles.settingButtonText}>+</ThemedText>
-              </TouchableOpacity>
-            </View>
-          </View>
+          {/* Botón de escaneo */}
+          <TouchableOpacity
+            style={[
+              styles.scanButton,
+              {
+                backgroundColor: isScanning ? colors.danger : colors.tint,
+              },
+            ]}
+            onPress={handleScanToggle}
+            disabled={bleState !== 'PoweredOn'}>
+            {isScanning ? (
+              <>
+                <ActivityIndicator color="#fff" />
+                <ThemedText style={styles.scanButtonText}>Detener Escaneo</ThemedText>
+              </>
+            ) : (
+              <>
+                <IconSymbol name="antenna.radiowaves.left.and.right" size={20} color="#fff" />
+                <ThemedText style={styles.scanButtonText}>Iniciar Escaneo</ThemedText>
+              </>
+            )}
+          </TouchableOpacity>
 
-          <View style={styles.settingRow}>
-            <ThemedText style={styles.settingLabel}>Suavizado RSSI</ThemedText>
-            <View style={styles.settingControls}>
-              <TouchableOpacity
-                style={[styles.settingButton, { borderColor: colors.border }]}
-                onPress={() => setRssiWindowSize((prev) => Math.max(3, prev - 1))}>
-                <ThemedText style={styles.settingButtonText}>-</ThemedText>
-              </TouchableOpacity>
-              <ThemedText style={styles.settingValue}>{rssiWindowSize} lecturas</ThemedText>
-              <TouchableOpacity
-                style={[styles.settingButton, { borderColor: colors.border }]}
-                onPress={() => setRssiWindowSize((prev) => Math.min(10, prev + 1))}>
-                <ThemedText style={styles.settingButtonText}>+</ThemedText>
-              </TouchableOpacity>
+          {/* Ajustes de distancia */}
+          <ThemedView style={[styles.settingsCard, { borderColor: colors.border }]}>
+            <View style={styles.settingsHeader}>
+              <IconSymbol name="slider.horizontal.3" size={18} color={colors.icon} />
+              <ThemedText type="defaultSemiBold" style={styles.settingsTitle}>
+                Ajustes de distancia
+              </ThemedText>
             </View>
-          </View>
+
+            <View style={styles.settingRow}>
+              <ThemedText style={styles.settingLabel}>Factor n</ThemedText>
+              <View style={styles.settingControls}>
+                <TouchableOpacity
+                  style={[styles.settingButton, { borderColor: colors.border }]}
+                  onPress={() => setDistanceN((prev) => Math.max(2.0, Number((prev - 0.1).toFixed(1))))}>
+                  <ThemedText style={styles.settingButtonText}>-</ThemedText>
+                </TouchableOpacity>
+                <ThemedText style={styles.settingValue}>{distanceN.toFixed(1)}</ThemedText>
+                <TouchableOpacity
+                  style={[styles.settingButton, { borderColor: colors.border }]}
+                  onPress={() => setDistanceN((prev) => Math.min(3.0, Number((prev + 0.1).toFixed(1))))}>
+                  <ThemedText style={styles.settingButtonText}>+</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.settingRow}>
+              <ThemedText style={styles.settingLabel}>Tx Power @1m</ThemedText>
+              <View style={styles.settingControls}>
+                <TouchableOpacity
+                  style={[styles.settingButton, { borderColor: colors.border }]}
+                  onPress={() => setTxPowerFallback((prev) => Math.max(-80, prev - 1))}>
+                  <ThemedText style={styles.settingButtonText}>-</ThemedText>
+                </TouchableOpacity>
+                <ThemedText style={styles.settingValue}>{txPowerFallback} dBm</ThemedText>
+                <TouchableOpacity
+                  style={[styles.settingButton, { borderColor: colors.border }]}
+                  onPress={() => setTxPowerFallback((prev) => Math.min(-30, prev + 1))}>
+                  <ThemedText style={styles.settingButtonText}>+</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.settingRow}>
+              <ThemedText style={styles.settingLabel}>Suavizado RSSI</ThemedText>
+              <View style={styles.settingControls}>
+                <TouchableOpacity
+                  style={[styles.settingButton, { borderColor: colors.border }]}
+                  onPress={() => setRssiWindowSize((prev) => Math.max(3, prev - 1))}>
+                  <ThemedText style={styles.settingButtonText}>-</ThemedText>
+                </TouchableOpacity>
+                <ThemedText style={styles.settingValue}>{rssiWindowSize} lecturas</ThemedText>
+                <TouchableOpacity
+                  style={[styles.settingButton, { borderColor: colors.border }]}
+                  onPress={() => setRssiWindowSize((prev) => Math.min(10, prev + 1))}>
+                  <ThemedText style={styles.settingButtonText}>+</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ThemedView>
+
+          <RoomMap
+            roomLabel="Sala 2"
+            currentZone={currentZone}
+            progressZone={progressZone}
+            distanceMeters={distanceMeters}
+          />
         </ThemedView>
-      </ThemedView>
 
-      {/* Lista de beacons */}
-      <BeaconList beacons={beacons} isScanning={isScanning} distanceN={distanceN} />
+        {/* Lista de beacons */}
+        <BeaconList beacons={beacons} isScanning={isScanning} distanceN={distanceN} scrollEnabled={false} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -162,6 +232,9 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 24,
   },
   header: {
     padding: 16,

@@ -10,16 +10,19 @@ const bleManager = new BleManager();
 interface BleScannerOptions {
     defaultTxPowerDbm?: number;
     rssiWindowSize?: number;
+    emaAlpha?: number;
 }
 
 export function useBleScanner(options: BleScannerOptions = {}) {
     const defaultTxPowerDbm = options.defaultTxPowerDbm ?? -8;
     const rssiWindowSize = options.rssiWindowSize ?? 5;
+    const emaAlpha = options.emaAlpha ?? 0.7;
     const [beacons, setBeacons] = useState<Map<string, BeaconData>>(new Map());
     const [isScanning, setIsScanning] = useState(false);
     const [bleState, setBleState] = useState<State | null>(null);
     const [error, setError] = useState<string | null>(null);
     const rssiHistoryRef = useRef<Map<string, number[]>>(new Map());
+    const emaRssiRef = useRef<Map<string, number>>(new Map());
 
     // Parsear Service Data del beacon
     const parseServiceData = useCallback((serviceData: string): Partial<BeaconData> | null => {
@@ -27,22 +30,23 @@ export function useBleScanner(options: BleScannerOptions = {}) {
             // El Service Data viene en base64, lo decodificamos
             const buffer = Buffer.from(serviceData, 'base64');
 
-            // Formato: Room ID (variable) + BEACON_NODE (1) + FW_MAJOR (1) + FW_MINOR (1) + BATTERY_MV (2)
-            // Necesitamos al menos 5 bytes después del Room ID
-            if (buffer.length < 5) {
+            // Formato: Room ID (variable) + BEACON_NODE (1) + FW_MAJOR (1) + FW_MINOR (1) + TX_POWER (1) + BATTERY_MV (2)
+            // Necesitamos al menos 6 bytes después del Room ID
+            if (buffer.length < 6) {
                 return null;
             }
 
-            // Los últimos 5 bytes son: beaconNode, fwMajor, fwMinor, battery (2 bytes)
-            const beaconNode = buffer[buffer.length - 5];
-            const firmwareMajor = buffer[buffer.length - 4];
-            const firmwareMinor = buffer[buffer.length - 3];
+            // Los últimos 6 bytes son: beaconNode, fwMajor, fwMinor, txPower, battery (2 bytes)
+            const beaconNode = buffer[buffer.length - 6];
+            const firmwareMajor = buffer[buffer.length - 5];
+            const firmwareMinor = buffer[buffer.length - 4];
+            const txPower = buffer.readInt8(buffer.length - 3); // TX Power en signed byte
 
             // Battery en little-endian (2 bytes)
             const batteryMv = buffer.readUInt16LE(buffer.length - 2);
 
             // Room ID es todo lo que queda al principio
-            const roomId = buffer.slice(0, buffer.length - 5).toString('utf-8');
+            const roomId = buffer.slice(0, buffer.length - 6).toString('utf-8');
 
             return {
                 roomId,
@@ -50,6 +54,7 @@ export function useBleScanner(options: BleScannerOptions = {}) {
                 firmwareMajor,
                 firmwareMinor,
                 firmwareVersion: `${firmwareMajor}.${firmwareMinor}`,
+                txPower, // TX Power extraído del payload
                 battery: batteryMv,
                 id: `${roomId}-B${beaconNode.toString().padStart(2, '0')}`,
             };
@@ -80,17 +85,25 @@ export function useBleScanner(options: BleScannerOptions = {}) {
         const nextHistory = [...history, rawRssi].slice(-rssiWindowSize);
         rssiHistoryRef.current.set(parsedData.id, nextHistory);
 
-        const smoothedRssi = Math.round(
-            nextHistory.reduce((sum, value) => sum + value, 0) / nextHistory.length
-        );
+        const seedAverage =
+            nextHistory.reduce((sum, value) => sum + value, 0) / Math.max(1, nextHistory.length);
+        const previousEma = emaRssiRef.current.get(parsedData.id);
+        const nextEma = previousEma === undefined
+            ? seedAverage
+            : emaAlpha * rawRssi + (1 - emaAlpha) * previousEma;
+        emaRssiRef.current.set(parsedData.id, nextEma);
+
+        const smoothedRssi = Math.round(nextEma);
 
         const beaconData: BeaconData = {
             id: parsedData.id,
             roomId: parsedData.roomId || '',
             beaconNode: parsedData.beaconNode || 0,
             rssi: smoothedRssi,
-            // Usar valor calibrado (RSSI @1m) desde la UI
+            // Usar TX Power @1m calibrado desde la UI (el TX Power del payload es solo información)
             txPower: defaultTxPowerDbm,
+            // TX Power extraído del payload para mostrar como información
+            txPowerPayload: parsedData.txPower ?? 0,
             firmwareVersion: parsedData.firmwareVersion || '0.0',
             firmwareMajor: parsedData.firmwareMajor || 0,
             firmwareMinor: parsedData.firmwareMinor || 0,
@@ -105,7 +118,7 @@ export function useBleScanner(options: BleScannerOptions = {}) {
             updated.set(beaconData.id, beaconData);
             return updated;
         });
-    }, [defaultTxPowerDbm, parseServiceData, rssiWindowSize]);
+    }, [defaultTxPowerDbm, emaAlpha, parseServiceData, rssiWindowSize]);
 
     // Solicitar permisos en Android
     const requestAndroidPermissions = async (): Promise<boolean> => {
@@ -205,14 +218,15 @@ export function useBleScanner(options: BleScannerOptions = {}) {
                 let hasChanges = false;
 
                 for (const [id, beacon] of updated.entries()) {
-                    // Eliminar beacons no vistos en 10 segundos (considerado desconectado)
-                    if (now - beacon.lastSeen > 10000) {
+                    // Eliminar beacons no vistos en 20 segundos (considerado desconectado definitivamente)
+                    if (now - beacon.lastSeen > 20000) {
                         updated.delete(id);
                         rssiHistoryRef.current.delete(id);
+                        emaRssiRef.current.delete(id);
                         hasChanges = true;
                     }
-                    // Marcar como inactivo si no se ha visto en >800ms (ciclo de reposo a 500ms)
-                    else if (beacon.isActive && now - beacon.lastSeen > 800) {
+                    // Marcar como inactivo si no se ha visto en >4500ms (muy tolerante a desconexiones breves y perdidas de paquetes)
+                    else if (beacon.isActive && now - beacon.lastSeen > 4500) {
                         updated.set(id, { ...beacon, isActive: false });
                         hasChanges = true;
                     }
