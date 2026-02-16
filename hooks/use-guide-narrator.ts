@@ -96,7 +96,7 @@ export function useGuideNarrator({
 
         const currentKey = `${roomId}:Z${zone}`;
         console.log('🎙️ Zone changed:', { currentKey, lastSpoken: lastSpokenKeyRef.current });
-        
+
         if (lastSpokenKeyRef.current !== currentKey) {
             lastSpokenKeyRef.current = currentKey;
             console.log('🎙️ Triggering speak for new zone');
