@@ -1,22 +1,54 @@
 # MuseIQ - BLE Beacon Scanner
 
-Esta es una aplicación [Expo](https://expo.dev) para escanear beacons BLE de salas.
+Esta es una aplicación [Expo](https://expo.dev) para escanear beacons BLE de salas y detectar distancia/zonas de proximidad.
 
 ## Funcionalidades
 
-### Scanner BLE (A - Básico) ✅
-- **Escaneo en tiempo real** de beacons BLE cercanos
-- **Visualización de métricas**:
+### Scanner BLE en Tiempo Real ✅
+- **Escaneo continuo** de beacons BLE cercanos
+- **Visualización de métricas por beacon**:
   - RSSI (intensidad de señal en dBm)
-  - Distancia estimada en metros
+  - TX Power (potencia de transmisión del beacon)
   - Estado de batería (mV)
-  - Calidad de señal (Excelente/Buena/Regular/Débil)
-  - **Estado del beacon** (Activo/Reposo)
-- **Información del beacon**:
+  - Calidad de señal (coloreada: Excelente/Buena/Regular/Débil)
+  - Estado del beacon (Activo/Reposo)
+- **Información completa del beacon**:
   - ID de sala (Room ID)
   - Número de beacon
   - Versión de firmware
   - Dirección MAC del dispositivo
+
+### Sistema de Zonas de Proximidad ✅
+- **Detección automática de distancia** basada en RSSI y TX Power @1m calibrado
+- **3 zonas de alcance**:
+  - 🟢 **Zona 1**: 0 - 0.5 m (muy cerca)
+  - 🔵 **Zona 2**: 0.5 - 1 m (cerca)
+  - 🟡 **Zona 3**: 1 - 1.5 m (media distancia)
+  - ⚫ **Fuera**: > 1.5 m
+- **Progreso unidireccional**: Una vez alcanzas una zona, no retrocedes (solo avanzas)
+- **Hysteresis**: Requiere 3 confirmaciones antes de cambiar de zona para evitar saltos falsos
+
+### Visualización de Sala Interactiva ✅
+- **Mapa visual** de la sala (Sala 2) con 3 zonas de color
+- **Marcador de usuario** que se mueve según tu posición actual
+- **Etiqueta de zona** mostrando dónde estás
+- **Indicador de distancia** estimada en metros
+- **Columnas laterales** representando puertas/pared
+- **Entrada y Salida** marcadas en los extremos
+
+### Filtrado Avanzado de Señal ✅
+- **EMA (Exponential Moving Average)** con α = 0.7 para reacción rápida
+- **Ventana deslizante de RSSI** (configurable: 3-10 lecturas) para suavizado inicial
+- **Tolerancia mejorada**: 
+  - 20 segundos para eliminar beacon definitivamente
+  - 4.5 segundos para marcar como "Reposo"
+  - Absorbe perdidas normales de paquetes BLE
+
+### Calibración en Tiempo Real ✅
+- **Factor n**: Ajusta el modelo de propagación (2.0 - 3.0)
+- **TX Power @1m**: Calibra la potencia de referencia (-80 a -30 dBm)
+- **Suavizado RSSI**: Cambia cantidad de lecturas para mayor/menor latencia
+- Los cambios se aplican instantáneamente en el cálculo de distancia
 
 ### Ciclo de Transmisión del Beacon
 
@@ -26,9 +58,9 @@ Los beacons transmiten con el siguiente patrón:
 - **Tiempo en reposo**: ~399 ms (ahorro de energía)
 
 La app detecta automáticamente el estado:
-- 🟢 **Activo**: Beacon transmitiendo (< 1s desde última señal)
+- 🟢 **Activo**: Beacon transmitiendo (< 4.5s desde última señal)
 - ⚪ **Reposo**: Beacon en ciclo de ahorro de energía
-- Los beacons se eliminan si no se detectan por 15 segundos
+- Los beacons se eliminan si no se detectan por 20 segundos
 
 ### Formato de datos BLE
 
@@ -38,54 +70,57 @@ El scanner detecta beacons que envían datos en el siguiente formato:
 
 **Service Data**:
 ```
-Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) + Battery mV (2 bytes little-endian)
+Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) + TX Power (1 byte signed) + Battery mV (2 bytes little-endian)
 ```
 
-**Ejemplo**: `SALA_2` + `0x02` + `0x01` + `0x00` + `0x740E` (3700 mV)
+**Ejemplo**: `SALA_2` + `0x02` + `0x01` + `0x00` + `0xF4` (-12 dBm) + `0x740E` (3700 mV)
 
-## Comenzar
+## Próximas Características (Roadmap)
 
-1. Install dependencies
+- [ ] **Feedback Auditivo**: Sonidos al entrar a zonas
+- [ ] **Grabación de datos**: Registrar trayectorias de usuarios
+- [ ] **Multi-sala**: Soporte para múltiples salas simultáneamente
+- [ ] **Dashboard**: Estadísticas de uso y permanencia por zona
+- [ ] **Exportar datos**: Descargar históricos en CSV/JSON
 
+## Instalación y Uso
+
+1. **Instalar dependencias**:
    ```bash
    npm install
    ```
 
-2. Start the app
-
+2. **Iniciar la app**:
    ```bash
-   npx expo start
+   npm start
    ```
 
-In the output, you'll find options to open the app in a
+3. **Escanear en el dispositivo**:
+   - Abre Expo Go en tu teléfono
+   - Escanea el código QR mostrado
+   - O usa las opciones de emulador/simulador
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Ajustes Disponibles en la UI
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Desde la pantalla principal puedes:
+- **Factor n**: ↑ (más lejos) / ↓ (más cerca) — rango 2.0–3.0
+- **TX Power @1m**: ↑ (menos atenuación) / ↓ (más atenuación) — rango -80 a -30 dBm
+- **Suavizado RSSI**: ↑ (más suave, más lento) / ↓ (más ruidoso, más rápido) — rango 3–10 lecturas
 
-## Get a fresh project
+## Comenzar desarrollo
 
-When you're ready, run:
+Este proyecto usa [Expo Router](https://docs.expo.dev/router/introduction/) para file-based routing.
 
-```bash
-npm run reset-project
-```
+Edita los archivos en el directorio **app** para comenzar:
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+- `app/(tabs)/index.tsx` — Pantalla principal (scanner y mapa)
+- `components/beacon-list.tsx` — Lista de beacons detectados
+- `components/room-map.tsx` — Visualización de sala
+- `hooks/use-ble-scanner.ts` — Lógica de escaneo BLE
 
-## Learn more
+## Recursos
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- [Documentación Expo](https://docs.expo.dev/)
+- [Expo Router](https://docs.expo.dev/router/introduction/)
+- [React Native](https://reactnative.dev/)
+- [react-native-ble-plx](https://github.com/dotintent/react-native-ble-plx) — BLE library usada

@@ -6,9 +6,10 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useBleScanner } from '@/hooks/use-ble-scanner';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useGuideNarrator } from '@/hooks/use-guide-narrator';
 import { Image } from 'expo-image';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const estimateDistanceMeters = (rssi: number, txPower: number, n: number): number => {
@@ -54,11 +55,18 @@ export default function HomeScreen() {
   const [currentZone, setCurrentZone] = useState(0);
   const [progressZone, setProgressZone] = useState(0);
   const [distanceMeters, setDistanceMeters] = useState<number | null>(null);
+  const [guideEnabled, setGuideEnabled] = useState(false);
   const zoneHistoryRef = useRef<number[]>([]);
 
   const { beacons, isScanning, bleState, error, startScanning, stopScanning } = useBleScanner({
     defaultTxPowerDbm: txPowerFallback,
     rssiWindowSize,
+  });
+
+  const guide = useGuideNarrator({
+    roomId: 'SALA_2',
+    zone: currentZone,
+    enabled: guideEnabled && isScanning,
   });
 
   useEffect(() => {
@@ -86,6 +94,8 @@ export default function HomeScreen() {
   const handleScanToggle = () => {
     if (isScanning) {
       stopScanning();
+      setGuideEnabled(false);
+      guide.stop();
     } else {
       startScanning();
     }
@@ -214,6 +224,50 @@ export default function HomeScreen() {
             </View>
           </ThemedView>
 
+          {/* Controles de Guía Hablada */}
+          <ThemedView style={[styles.settingsCard, { borderColor: colors.border }]}>
+            <View style={styles.settingsHeader}>
+              <IconSymbol name="speaker.wave.2.fill" size={18} color={colors.icon} />
+              <ThemedText type="defaultSemiBold" style={styles.settingsTitle}>
+                Guía Virtual
+              </ThemedText>
+            </View>
+
+            <View style={styles.settingRow}>
+              <ThemedText style={styles.settingLabel}>Guía Hablada</ThemedText>
+              <Switch
+                value={guideEnabled && isScanning}
+                onValueChange={(enabled) => {
+                  if (!isScanning) {
+                    return; // No permitir activar sin escaneo
+                  }
+                  setGuideEnabled(enabled);
+                }}
+                disabled={!isScanning}
+                trackColor={{ false: '#ccc', true: colors.tint + '80' }}
+                thumbColor={guideEnabled && isScanning ? colors.tint : '#f4f3f4'}
+              />
+            </View>
+
+            {guideEnabled && (
+              <TouchableOpacity
+                style={[
+                  styles.guideButton,
+                  {
+                    backgroundColor: colors.tint,
+                    opacity: guide.isPlaying ? 0.7 : 1,
+                  },
+                ]}
+                onPress={() => guide.speakNow()}
+                disabled={guide.isPlaying}>
+                <IconSymbol name={guide.isPlaying ? 'speaker.slash.fill' : 'speaker.wave.2'} size={16} color="#fff" />
+                <ThemedText style={styles.guideButtonText}>
+                  {guide.isPlaying ? 'Hablando...' : 'Repetir Narración'}
+                </ThemedText>
+              </TouchableOpacity>
+            )}
+          </ThemedView>
+
           <RoomMap
             roomLabel="Sala 2"
             currentZone={currentZone}
@@ -331,5 +385,19 @@ const styles = StyleSheet.create({
     minWidth: 70,
     textAlign: 'center',
     fontSize: 13,
+  },
+  guideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  guideButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

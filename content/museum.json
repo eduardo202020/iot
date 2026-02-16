@@ -1,0 +1,32 @@
+{
+    "SALA_2": {
+        "name": "Sala 2",
+        "Z1": {
+            "title": "Zona 1 - Muy Cerca",
+            "narration": "Bienvenido a la Zona 1. Estás muy cerca del centro de la sala. Aquí se encuentran los artefactos más interesantes. Acércate más para descubrir detalles fascinantes."
+        },
+        "Z2": {
+            "title": "Zona 2 - Cercano",
+            "narration": "Estás en la Zona 2. Esta es una distancia óptima para observar la exposición. Muévete lentamente para explorar todos los elementos. Los paneles informativos están disponibles a tu alrededor."
+        },
+        "Z3": {
+            "title": "Zona 3 - Distancia Media",
+            "narration": "Has entrado a la Zona 3. Desde aquí, puedes tener una visión general de la sala completa. Si lo deseas, acércate a las Zonas 1 y 2 para una experiencia más inmersiva."
+        }
+    },
+    "SALA_1": {
+        "name": "Sala 1",
+        "Z1": {
+            "title": "Zona 1 - Muy Cerca",
+            "narration": "Zona 1 de la Sala 1. Contenido próximamente."
+        },
+        "Z2": {
+            "title": "Zona 2 - Cercano",
+            "narration": "Zona 2 de la Sala 1. Contenido próximamente."
+        },
+        "Z3": {
+            "title": "Zona 3 - Distancia Media",
+            "narration": "Zona 3 de la Sala 1. Contenido próximamente."
+        }
+    }
+}
