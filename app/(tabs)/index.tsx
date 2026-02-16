@@ -38,7 +38,7 @@ export default function HomeScreen() {
           <Image source={require('@/assets/images/logo.png')} style={styles.logo} />
           <View style={styles.headerText}>
             <ThemedText type="title" style={styles.title}>
-              MuseIQ Scanner
+              MuseIQ Scanner v2
             </ThemedText>
             <ThemedText style={styles.subtitle}>
               {beacons.length} {beacons.length === 1 ? 'beacon detectado' : 'beacons detectados'}
