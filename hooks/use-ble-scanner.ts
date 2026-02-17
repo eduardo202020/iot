@@ -1,7 +1,7 @@
 import type { BeaconData } from '@/types/beacon';
 import { BEACON_SERVICE_UUID } from '@/types/beacon';
 import { Buffer } from 'buffer';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, PermissionsAndroid, Platform } from 'react-native';
 import { BleManager, Device, State } from 'react-native-ble-plx';
 
@@ -218,15 +218,16 @@ export function useBleScanner(options: BleScannerOptions = {}) {
                 let hasChanges = false;
 
                 for (const [id, beacon] of updated.entries()) {
-                    // Eliminar beacons no vistos en 20 segundos (considerado desconectado definitivamente)
-                    if (now - beacon.lastSeen > 20000) {
+                    // Eliminar beacons no vistos en 120 segundos (2 minutos) - considerado desconectado definitivamente
+                    if (now - beacon.lastSeen > 120000) {
                         updated.delete(id);
                         rssiHistoryRef.current.delete(id);
                         emaRssiRef.current.delete(id);
                         hasChanges = true;
                     }
-                    // Marcar como inactivo si no se ha visto en >4500ms (muy tolerante a desconexiones breves y perdidas de paquetes)
-                    else if (beacon.isActive && now - beacon.lastSeen > 4500) {
+                    // Marcar como inactivo si no se ha visto en >30 segundos
+                    // El beacon envía cada 500ms, así que cualquier pérdida >30s indica problemas severos
+                    else if (beacon.isActive && now - beacon.lastSeen > 30000) {
                         updated.set(id, { ...beacon, isActive: false });
                         hasChanges = true;
                     }
@@ -234,7 +235,7 @@ export function useBleScanner(options: BleScannerOptions = {}) {
 
                 return hasChanges ? updated : prev;
             });
-        }, 250); // Verificar cada 250ms para detectar reposo con intervalo 500ms
+        }, 1000); // Verificar cada 1 segundo
 
         return () => clearInterval(interval);
     }, []);
@@ -260,8 +261,13 @@ export function useBleScanner(options: BleScannerOptions = {}) {
         };
     }, [isScanning]);
 
+    const sortedBeacons = useMemo(
+        () => Array.from(beacons.values()).sort((a, b) => b.rssi - a.rssi),
+        [beacons]
+    );
+
     return {
-        beacons: Array.from(beacons.values()).sort((a, b) => b.rssi - a.rssi), // Ordenar por señal más fuerte
+        beacons: sortedBeacons, // Ordenar por señal más fuerte
         isScanning,
         bleState,
         error,

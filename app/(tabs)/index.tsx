@@ -17,10 +17,13 @@ const estimateDistanceMeters = (rssi: number, txPower: number, n: number): numbe
   return Math.max(0.1, distance);
 };
 
+const MAX_WALK_SPEED_MPS = 0.8;
+const DISTANCE_SMOOTHING_ALPHA = 0.15;
+
 const getZoneFromDistance = (distanceMeters: number): number => {
   if (distanceMeters <= 0.5) return 1;
-  if (distanceMeters <= 1) return 2;
-  if (distanceMeters <= 1.5) return 3;
+  if (distanceMeters <= 0.8) return 2;
+  if (distanceMeters <= 1.2) return 3;
   return 0;
 };
 
@@ -51,16 +54,20 @@ export default function HomeScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const [distanceN, setDistanceN] = useState(2.5);
   const [txPowerFallback, setTxPowerFallback] = useState(-52);
-  const [rssiWindowSize, setRssiWindowSize] = useState(5);
+  const [rssiWindowSize, setRssiWindowSize] = useState(7);
   const [currentZone, setCurrentZone] = useState(0);
   const [progressZone, setProgressZone] = useState(0);
   const [distanceMeters, setDistanceMeters] = useState<number | null>(null);
   const [guideEnabled, setGuideEnabled] = useState(false);
   const zoneHistoryRef = useRef<number[]>([]);
+  const currentZoneRef = useRef(0);
+  const smoothedDistanceRef = useRef<number | null>(null);
+  const lastDistanceTsRef = useRef<number>(Date.now());
 
   const { beacons, isScanning, bleState, error, startScanning, stopScanning } = useBleScanner({
     defaultTxPowerDbm: txPowerFallback,
     rssiWindowSize,
+    emaAlpha: 0.4,
   });
 
   const guide = useGuideNarrator({
@@ -71,25 +78,44 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (beacons.length === 0) {
-      setCurrentZone(0);
+      if (currentZoneRef.current !== 0) {
+        currentZoneRef.current = 0;
+        setCurrentZone(0);
+      }
       setDistanceMeters(null);
       zoneHistoryRef.current = [];
+      smoothedDistanceRef.current = null;
+      lastDistanceTsRef.current = Date.now();
       return;
     }
 
     const strongest = beacons[0];
-    const distanceMeters = estimateDistanceMeters(strongest.rssi, strongest.txPower, distanceN);
-    const rawZone = getZoneFromDistance(distanceMeters);
+    const rawDistance = estimateDistanceMeters(strongest.rssi, strongest.txPower, distanceN);
+    const now = Date.now();
+    const previous = smoothedDistanceRef.current ?? rawDistance;
+    const dtSeconds = Math.max(0.001, (now - lastDistanceTsRef.current) / 1000);
+    const maxDelta = MAX_WALK_SPEED_MPS * dtSeconds;
+
+    const clamped = Math.min(previous + maxDelta, Math.max(previous - maxDelta, rawDistance));
+    const smoothedDistance = previous + DISTANCE_SMOOTHING_ALPHA * (clamped - previous);
+
+    smoothedDistanceRef.current = smoothedDistance;
+    lastDistanceTsRef.current = now;
+
+    const rawZone = getZoneFromDistance(smoothedDistance);
 
     // Aplicar hysteresis: requiere 3 confirmaciones antes de cambiar zona
-    const confirmedZone = applyZoneHysteresis(rawZone, currentZone, zoneHistoryRef);
+    const confirmedZone = applyZoneHysteresis(rawZone, currentZoneRef.current, zoneHistoryRef);
 
-    setCurrentZone(confirmedZone);
-    setDistanceMeters(distanceMeters);
+    if (currentZoneRef.current !== confirmedZone) {
+      currentZoneRef.current = confirmedZone;
+      setCurrentZone(confirmedZone);
+    }
+    setDistanceMeters(smoothedDistance);
     if (confirmedZone > 0) {
       setProgressZone((prev) => Math.max(prev, confirmedZone));
     }
-  }, [beacons, distanceN, currentZone]);
+  }, [beacons, distanceN]);
 
   const handleScanToggle = () => {
     if (isScanning) {
@@ -177,13 +203,13 @@ export default function HomeScreen() {
               <View style={styles.settingControls}>
                 <TouchableOpacity
                   style={[styles.settingButton, { borderColor: colors.border }]}
-                  onPress={() => setDistanceN((prev) => Math.max(2.0, Number((prev - 0.1).toFixed(1))))}>
+                  onPress={() => setDistanceN((prev) => Math.max(1.0, Number((prev - 10).toFixed(1))))}>
                   <ThemedText style={styles.settingButtonText}>-</ThemedText>
                 </TouchableOpacity>
                 <ThemedText style={styles.settingValue}>{distanceN.toFixed(1)}</ThemedText>
                 <TouchableOpacity
                   style={[styles.settingButton, { borderColor: colors.border }]}
-                  onPress={() => setDistanceN((prev) => Math.min(3.0, Number((prev + 0.1).toFixed(1))))}>
+                  onPress={() => setDistanceN((prev) => Math.min(500.0, Number((prev + 10).toFixed(1))))}>
                   <ThemedText style={styles.settingButtonText}>+</ThemedText>
                 </TouchableOpacity>
               </View>
@@ -194,13 +220,13 @@ export default function HomeScreen() {
               <View style={styles.settingControls}>
                 <TouchableOpacity
                   style={[styles.settingButton, { borderColor: colors.border }]}
-                  onPress={() => setTxPowerFallback((prev) => Math.max(-80, prev - 1))}>
+                  onPress={() => setTxPowerFallback((prev) => Math.max(-80, prev - 10))}>
                   <ThemedText style={styles.settingButtonText}>-</ThemedText>
                 </TouchableOpacity>
                 <ThemedText style={styles.settingValue}>{txPowerFallback} dBm</ThemedText>
                 <TouchableOpacity
                   style={[styles.settingButton, { borderColor: colors.border }]}
-                  onPress={() => setTxPowerFallback((prev) => Math.min(-30, prev + 1))}>
+                  onPress={() => setTxPowerFallback((prev) => Math.min(-10, prev + 10))}>
                   <ThemedText style={styles.settingButtonText}>+</ThemedText>
                 </TouchableOpacity>
               </View>
