@@ -2,6 +2,10 @@
 
 Esta es una aplicación [Expo](https://expo.dev) para escanear beacons BLE de salas y detectar distancia/zonas de proximidad.
 
+## Desarrollo Rapido
+
+Para retomar desarrollo en WSL2 + Development Build sin tunnel, revisa [`README-DEV.md`](./README-DEV.md).
+
 ## Funcionalidades
 
 ### Scanner BLE en Tiempo Real ✅
@@ -105,6 +109,33 @@ Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) +
 3. **Para TTS en Android** (expo-speech):
   - Instala el APK del dev client generado con EAS
   - Ejecuta `npm start` y abre el proyecto desde el dev client
+
+### WSL2 + Development Build sin Tunnel (recomendado)
+
+Si `expo start` publica una IP `172.x.x.x` (WSL), el telefono en `192.168.x.x` no puede conectarse directamente a Metro.
+
+1. En **Windows PowerShell (Administrador)**, desde la raiz del proyecto:
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\expo-wsl-portproxy.ps1
+  ```
+
+2. En **WSL**, inicia Expo para dev client en LAN:
+  ```bash
+  npm run dev:client:lan
+  ```
+
+  Este comando detecta automaticamente la IP LAN de Windows y define `REACT_NATIVE_PACKAGER_HOSTNAME`.
+
+3. Si Expo sigue mostrando host `172.x.x.x`, fuerza la IP LAN de Windows:
+  ```bash
+  export REACT_NATIVE_PACKAGER_HOSTNAME=<TU_IP_WINDOWS_LAN>
+  npm run dev:client:lan
+  ```
+
+Comando util desde WSL para correr el script de Windows:
+```bash
+npm run wsl:portproxy
+```
 
 3. **Escanear en el dispositivo**:
    - Abre Expo Go en tu teléfono

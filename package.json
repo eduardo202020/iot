@@ -5,6 +5,9 @@
   "scripts": {
     "start": "expo start",
     "dev": "expo start --tunnel",
+    "dev:client": "expo start --dev-client --tunnel",
+    "dev:client:lan": "bash ./scripts/start-devclient-lan.sh",
+    "wsl:portproxy": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/expo-wsl-portproxy.ps1",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
