@@ -1,4 +1,8 @@
 import { DEFAULT_ARTWORK_MODEL, getArtworkModelAssetForArtwork } from "@/lib/artwork-models";
+import type {
+  ImmersiveTourDefinition,
+  ImmersiveTourVector,
+} from "@/lib/immersive-tours";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
 import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
@@ -19,6 +23,8 @@ import * as THREE from "three";
 type CabezaClavaModelViewProps = {
   autoRotate?: boolean;
   headTracking?: boolean;
+  immersiveSubject?: ImmersiveSubject;
+  immersiveTour?: ImmersiveTourDefinition;
   interactive?: boolean;
   modelAsset?: ModelAsset;
   modelLabel?: string;
@@ -31,6 +37,7 @@ type CabezaClavaModelViewProps = {
 };
 
 type ModelAsset = number;
+type ImmersiveSubject = "space" | "object";
 type ModelViewMode = "object" | "immersive";
 
 type GltfJson = {
@@ -140,17 +147,20 @@ type ImmersiveCameraRig = {
   lookDistance: number;
   near: number;
   origin: THREE.Vector3;
+  subject: ImmersiveSubject;
   target: THREE.Vector3;
   tourPoints: ImmersiveTourPoint[];
 };
 
 type ImmersiveTourPoint = {
   duration: number;
+  fov?: number;
   position: THREE.Vector3;
   target: THREE.Vector3;
 };
 
 type ImmersiveTourFrame = {
+  fov?: number;
   position: THREE.Vector3;
   target: THREE.Vector3;
 };
@@ -220,16 +230,21 @@ const MAX_VERTICAL_ROTATION = Math.PI * 0.32;
 const MAX_IMMERSIVE_PITCH = Math.PI * 0.42;
 const IMMERSIVE_TRACKING_PITCH_SENSITIVITY = 1.55;
 const IMMERSIVE_TRACKING_YAW_SENSITIVITY = 1.35;
-const IMMERSIVE_TRACKING_ROLL_SENSITIVITY = 0.85;
 const IMMERSIVE_TRACKING_SMOOTHING = 0.42;
+const IMMERSIVE_TOUR_YAW_SMOOTHING = 0.72;
+const IMMERSIVE_TOUR_PITCH_SMOOTHING = 0.36;
 const IMMERSIVE_TILT_YAW_ASSIST = 0.72;
-const IMMERSIVE_COMPASS_YAW_WEIGHT = 0.78;
-const IMMERSIVE_TOUR_HEAD_LOOK_WEIGHT = 0.28;
-const IMMERSIVE_TOUR_ROLL_WEIGHT = 0;
+const IMMERSIVE_COMPASS_YAW_WEIGHT = 1;
+const IMMERSIVE_SPACE_TOUR_HEAD_YAW_WEIGHT = 1;
+const IMMERSIVE_SPACE_TOUR_HEAD_PITCH_WEIGHT = 0.46;
+const IMMERSIVE_SPACE_TOUR_HEAD_YAW_DIRECTION = -1;
+const IMMERSIVE_SPACE_TOUR_HEAD_PITCH_DIRECTION = -1;
 const ENABLE_3D_TERMINAL_LOGS = false;
 const ENABLE_VR_PERFORMANCE_LOGS = false;
 const VR_PERFORMANCE_LOG_INTERVAL_MS = 1000;
 const VR_EYE_SEPARATION = 0.024;
+const IMMERSIVE_STEREO_TARGET_FRAME_MS = 1000 / 30;
+const IMMERSIVE_TEXTURE_MAX_ANISOTROPY = 2;
 const deviceOrientationAxis = new THREE.Vector3(0, 0, 1);
 const deviceOrientationEuler = new THREE.Euler();
 const deviceOrientationScreenQuaternion = new THREE.Quaternion();
@@ -310,6 +325,8 @@ function getPreparedModelTemplate(
 export function CabezaClavaModelView({
   autoRotate = true,
   headTracking = false,
+  immersiveSubject = "space",
+  immersiveTour,
   interactive = false,
   modelAsset = DEFAULT_ARTWORK_MODEL.asset,
   modelLabel = DEFAULT_ARTWORK_MODEL.label,
@@ -335,6 +352,7 @@ export function CabezaClavaModelView({
   const initialPinchDistanceRef = useRef<number | null>(null);
   const initialPinchZoomRef = useRef(1);
   const autoRotateRef = useRef(autoRotate);
+  const guidedTourStartAtRef = useRef<number | null>(null);
   const hasUserInteractedRef = useRef(false);
   const deviceOrientationRef = useRef<THREE.Quaternion | null>(null);
   const deviceOrientationReferenceRef = useRef<THREE.Quaternion | null>(null);
@@ -374,7 +392,6 @@ export function CabezaClavaModelView({
   const perfLastRenderFrameAtRef = useRef(0);
   const perfMaxFrameMsRef = useRef(0);
   const perfSlowFrameCountRef = useRef(0);
-  const guidedTourStartAtRef = useRef<number | null>(null);
   const renderedPitchRef = useRef(0);
   const renderedRollRef = useRef(0);
   const renderedYawRef = useRef(0);
@@ -516,10 +533,10 @@ export function CabezaClavaModelView({
     trackedYawRef.current = 0;
     trackedPitchRef.current = 0;
     trackedRollRef.current = 0;
+    guidedTourStartAtRef.current = null;
     renderedYawRef.current = 0;
     renderedPitchRef.current = 0;
     renderedRollRef.current = 0;
-    guidedTourStartAtRef.current = null;
     trackedRotationReferenceRef.current = null;
 
     if (deviceOrientationRef.current) {
@@ -1231,7 +1248,7 @@ export function CabezaClavaModelView({
       const scene = new THREE.Scene();
       const eyeAspectRatio = usesStereo ? width / 2 / height : width / height;
       const camera = new THREE.PerspectiveCamera(
-        isImmersive ? 36 : 44,
+        isImmersive ? (immersiveSubject === "space" ? 50 : 38) : 44,
         eyeAspectRatio,
         0.01,
         100,
@@ -1239,7 +1256,11 @@ export function CabezaClavaModelView({
       camera.position.set(0, 0.08, 3.2);
       camera.lookAt(0, 0, 0);
 
-      renderer = createRenderer(gl, width, height);
+      renderer = createRenderer(gl, width, height, {
+        antialias: !isImmersive,
+        opaque: isImmersive,
+        optimizeDrawOrder: isImmersive,
+      });
       if (usesStereo) {
         stereoCamera = new THREE.StereoCamera();
         stereoCamera.eyeSep = VR_EYE_SEPARATION;
@@ -1259,9 +1280,10 @@ export function CabezaClavaModelView({
         elapsedMs: Date.now() - loadStartedAt,
       });
       if (isImmersive) {
+        simplifyImmersiveMaterials(model);
         enableDoubleSidedMaterials(model);
         modelBaseScale = model.scale.clone();
-        immersiveRig = fitCameraInsideObject(camera, model);
+        immersiveRig = fitCameraInsideObject(camera, model, immersiveSubject, immersiveTour);
         if (stereoCamera) {
           stereoCamera.eyeSep = Math.min(VR_EYE_SEPARATION, immersiveRig.lookDistance * 0.012);
         }
@@ -1273,85 +1295,109 @@ export function CabezaClavaModelView({
         modelBaseScale = model.scale.clone();
         cameraFit = fitCameraToObject(camera, model, width / height);
       }
-      applyTextureQuality(model, renderer.capabilities.getMaxAnisotropy());
+      applyTextureQuality(
+        model,
+        renderer.capabilities.getMaxAnisotropy(),
+        isImmersive ? IMMERSIVE_TEXTURE_MAX_ANISOTROPY : undefined,
+      );
       scene.add(model);
       log3d(`[MuseIQ][3D] ${modelLabel} listo en ${Date.now() - loadStartedAt}ms`);
 
       let spin = 0;
       let hasRenderedFirstFrame = false;
+      let lastRenderedFrameAt = 0;
+      guidedTourStartAtRef.current = null;
       const animate = () => {
         animationFrameRef.current = requestAnimationFrame(animate);
+        const now = Date.now();
+        if (
+          usesStereo &&
+          hasRenderedFirstFrame &&
+          now - lastRenderedFrameAt < IMMERSIVE_STEREO_TARGET_FRAME_MS
+        ) {
+          return;
+        }
+        lastRenderedFrameAt = now;
+
         if (model) {
           model.scale.copy(modelBaseScale);
 
           if (isImmersive) {
             if (immersiveRig) {
-              if (guidedTourStartAtRef.current === null) {
-                guidedTourStartAtRef.current = Date.now();
-              }
+              const usesGuidedTour =
+                immersiveRig.subject === "space" && immersiveRig.tourPoints.length > 1;
 
-              const tourFrame = getImmersiveTourFrame(
-                immersiveRig,
-                (Date.now() - guidedTourStartAtRef.current) / 1000,
-              );
+              if (usesGuidedTour) {
+                if (guidedTourStartAtRef.current === null) {
+                  guidedTourStartAtRef.current = now;
+                }
 
-              if (
-                tourFrame &&
-                usesAndroidHeadTracking &&
-                headTrackingSourceRef.current === "gyroscope" &&
-                gyroscopeOrientationRef.current
-              ) {
-                applyTrackedImmersiveTourCameraPose(
-                  camera,
+                const tourFrame = getImmersiveTourFrame(
                   immersiveRig,
-                  tourFrame,
-                  identityQuaternion,
-                  gyroscopeOrientationRef.current,
+                  (now - guidedTourStartAtRef.current) / 1000,
                 );
-              } else if (
-                tourFrame &&
-                usesHeadTracking &&
-                !usesAndroidHeadTracking &&
-                deviceOrientationRef.current &&
-                deviceOrientationReferenceRef.current
-              ) {
-                applyTrackedImmersiveTourCameraPose(
-                  camera,
-                  immersiveRig,
-                  tourFrame,
-                  deviceOrientationReferenceRef.current,
-                  deviceOrientationRef.current,
-                );
-              } else if (tourFrame) {
-                const source = headTrackingSourceRef.current;
-                const targetYaw =
-                  source === "compass" || source === "device-motion"
-                    ? trackedYawRef.current
-                    : observerYawRef.current;
-                const targetPitch =
-                  source === "compass" || source === "device-motion"
-                    ? trackedPitchRef.current
-                    : observerPitchRef.current;
-                const targetRoll = source === "compass" ? trackedRollRef.current : 0;
-                renderedYawRef.current = lerpAngle(
-                  renderedYawRef.current,
-                  targetYaw,
-                  IMMERSIVE_TRACKING_SMOOTHING,
-                );
-                renderedPitchRef.current +=
-                  (targetPitch - renderedPitchRef.current) *
-                  IMMERSIVE_TRACKING_SMOOTHING;
-                renderedRollRef.current +=
-                  normalizeAngle(targetRoll - renderedRollRef.current) *
-                  IMMERSIVE_TRACKING_SMOOTHING;
-                applyImmersiveTourCameraPose(
-                  camera,
-                  immersiveRig,
-                  tourFrame,
-                  renderedYawRef.current,
-                  renderedPitchRef.current,
-                  renderedRollRef.current,
-                );
+
+                if (
+                  tourFrame &&
+                  usesAndroidHeadTracking &&
+                  headTrackingSourceRef.current === "gyroscope" &&
+                  gyroscopeOrientationRef.current
+                ) {
+                  applyTrackedImmersiveTourCameraPose(
+                    camera,
+                    immersiveRig,
+                    tourFrame,
+                    identityQuaternion,
+                    gyroscopeOrientationRef.current,
+                  );
+                } else if (
+                  tourFrame &&
+                  usesHeadTracking &&
+                  !usesAndroidHeadTracking &&
+                  deviceOrientationRef.current &&
+                  deviceOrientationReferenceRef.current
+                ) {
+                  applyTrackedImmersiveTourCameraPose(
+                    camera,
+                    immersiveRig,
+                    tourFrame,
+                    deviceOrientationReferenceRef.current,
+                    deviceOrientationRef.current,
+                  );
+                } else if (tourFrame) {
+                  const source = headTrackingSourceRef.current;
+                  const targetYaw =
+                    source === "compass" || source === "device-motion"
+                      ? trackedYawRef.current
+                      : observerYawRef.current;
+                  const targetPitch =
+                    source === "compass" || source === "device-motion"
+                      ? trackedPitchRef.current
+                      : observerPitchRef.current;
+
+                  renderedYawRef.current = lerpAngle(
+                    renderedYawRef.current,
+                    targetYaw,
+                    IMMERSIVE_TOUR_YAW_SMOOTHING,
+                  );
+                  renderedPitchRef.current +=
+                    (targetPitch - renderedPitchRef.current) *
+                    IMMERSIVE_TOUR_PITCH_SMOOTHING;
+                  applyImmersiveTourCameraPose(
+                    camera,
+                    immersiveRig,
+                    tourFrame,
+                    renderedYawRef.current,
+                    renderedPitchRef.current,
+                  );
+                } else {
+                  applyImmersiveCameraPose(
+                    camera,
+                    immersiveRig,
+                    renderedYawRef.current,
+                    renderedPitchRef.current,
+                  );
+                }
               } else if (
                 usesAndroidHeadTracking &&
                 headTrackingSourceRef.current === "gyroscope" &&
@@ -1364,22 +1410,40 @@ export function CabezaClavaModelView({
                   gyroscopeOrientationRef.current,
                 );
               } else if (
-                usesAndroidHeadTracking &&
-                headTrackingSourceRef.current === "compass"
+                usesHeadTracking &&
+                !usesAndroidHeadTracking &&
+                deviceOrientationRef.current &&
+                deviceOrientationReferenceRef.current
               ) {
-                applyCompassImmersiveCameraPose(
+                applyTrackedImmersiveCameraPose(
+                  camera,
+                  immersiveRig,
+                  deviceOrientationReferenceRef.current,
+                  deviceOrientationRef.current,
+                );
+              } else {
+                const source = headTrackingSourceRef.current;
+                const targetYaw =
+                  source === "compass" || source === "device-motion"
+                    ? trackedYawRef.current
+                    : observerYawRef.current;
+                const targetPitch =
+                  source === "compass" || source === "device-motion"
+                    ? trackedPitchRef.current
+                    : observerPitchRef.current;
+                renderedYawRef.current = lerpAngle(
+                  renderedYawRef.current,
+                  targetYaw,
+                  IMMERSIVE_TRACKING_SMOOTHING,
+                );
+                renderedPitchRef.current +=
+                  (targetPitch - renderedPitchRef.current) *
+                  IMMERSIVE_TRACKING_SMOOTHING;
+                applyImmersiveCameraPose(
                   camera,
                   immersiveRig,
                   renderedYawRef.current,
                   renderedPitchRef.current,
-                  renderedRollRef.current,
-                );
-              } else {
-                applyImmersiveCameraPose(
-                  camera,
-                  immersiveRig,
-                  observerYawRef.current,
-                  observerPitchRef.current,
                 );
               }
             }
@@ -1436,6 +1500,8 @@ export function CabezaClavaModelView({
     }
   }, [
     emitPerformanceSnapshot,
+    immersiveTour,
+    immersiveSubject,
     isImmersive,
     modelAsset,
     modelLabel,
@@ -1479,6 +1545,11 @@ function createRenderer(
   gl: ExpoWebGLRenderingContext,
   width: number,
   height: number,
+  options: {
+    antialias?: boolean;
+    opaque?: boolean;
+    optimizeDrawOrder?: boolean;
+  } = {},
 ) {
   const canvas = {
     addEventListener: () => undefined,
@@ -1491,16 +1562,19 @@ function createRenderer(
     width,
   };
   const renderer = new THREE.WebGLRenderer({
-    alpha: true,
-    antialias: true,
+    alpha: !options.opaque,
+    antialias: options.antialias ?? true,
     canvas: canvas as unknown as HTMLCanvasElement,
     context: gl as unknown as WebGLRenderingContext,
+    powerPreference: "high-performance",
+    premultipliedAlpha: !options.opaque,
   });
 
-  renderer.setClearColor(0x000000, 0);
+  renderer.setClearColor(0x000000, options.opaque ? 1 : 0);
   renderer.setPixelRatio(1);
   renderer.setSize(width, height, false);
   renderer.autoClear = false;
+  renderer.sortObjects = !options.optimizeDrawOrder;
 
   return renderer;
 }
@@ -1544,9 +1618,12 @@ function renderStereoScene(
   stereoCamera.update(camera);
 
   renderer.setClearColor(0x000000, 1);
-  renderer.setScissorTest(true);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, width, height);
+  renderer.setScissor(0, 0, width, height);
   renderer.clear();
 
+  renderer.setScissorTest(true);
   renderer.setViewport(0, 0, leftWidth, height);
   renderer.setScissor(0, 0, leftWidth, height);
   renderer.render(scene, stereoCamera.cameraL);
@@ -1557,6 +1634,8 @@ function renderStereoScene(
   renderer.render(scene, stereoCamera.cameraR);
 
   renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, width, height);
+  renderer.setScissor(0, 0, width, height);
 }
 
 function patchUnsupportedPixelStore(gl: ExpoWebGLRenderingContext) {
@@ -2219,32 +2298,54 @@ function applyCameraZoom(
   camera.updateProjectionMatrix();
 }
 
-function fitCameraInsideObject(camera: THREE.PerspectiveCamera, model: THREE.Object3D) {
+function fitCameraInsideObject(
+  camera: THREE.PerspectiveCamera,
+  model: THREE.Object3D,
+  immersiveSubject: ImmersiveSubject,
+  immersiveTour?: ImmersiveTourDefinition,
+) {
   model.updateWorldMatrix(true, true);
   const box = new THREE.Box3().setFromObject(model);
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
   const maxDimension = Math.max(size.x, size.y, size.z) || 1;
-  const origin = new THREE.Vector3(
-    center.x,
-    box.max.y + size.y * 0.42,
-    center.z + size.z * 0.32,
+  const isObjectView = immersiveSubject === "object";
+  const verticalFov = THREE.MathUtils.degToRad(camera.fov / 2);
+  const objectDistance = Math.max(
+    (Math.max(size.x, size.y) * 0.76) / Math.tan(verticalFov),
+    maxDimension * 1.35,
+    2.2,
   );
+  const origin = isObjectView
+    ? new THREE.Vector3(center.x, center.y + size.y * 0.03, box.max.z + objectDistance)
+    : new THREE.Vector3(
+        center.x,
+        box.max.y + size.y * 0.42,
+        center.z + size.z * 0.32,
+      );
+  const objectLookDistance = Math.max(Math.abs(origin.z - center.z), 2.2);
+  const tourPoints = isObjectView
+    ? []
+    : createImmersiveTourPoints(box, center, size, immersiveTour);
   const rig = {
-    basePitch: -Math.PI * 0.36,
+    basePitch: isObjectView ? 0 : -Math.PI * 0.36,
     baseYaw: 0,
-    far: Math.max(maxDimension * 12, 60),
-    lookDistance: Math.max(maxDimension * 0.46, 1.8),
+    far: Math.max(maxDimension * 12, objectDistance * 4, 60),
+    lookDistance: isObjectView
+      ? objectLookDistance
+      : Math.max(maxDimension * 0.46, 1.8),
     near: Math.max(maxDimension * 0.0025, 0.02),
     origin,
+    subject: immersiveSubject,
     target: center.clone(),
-    tourPoints: createImmersiveTourPoints(box, center, size),
+    tourPoints,
   };
 
   log3d("[MuseIQ][VR] rig simple", {
     basePitch: Number(rig.basePitch.toFixed(2)),
     baseYaw: rig.baseYaw,
     lookDistance: Number(rig.lookDistance.toFixed(2)),
+    subject: immersiveSubject,
     modelSize: [
       Number(size.x.toFixed(2)),
       Number(size.y.toFixed(2)),
@@ -2264,14 +2365,25 @@ function createImmersiveTourPoints(
   box: THREE.Box3,
   center: THREE.Vector3,
   size: THREE.Vector3,
+  immersiveTour?: ImmersiveTourDefinition,
 ) {
+  if (immersiveTour?.points.length) {
+    return immersiveTour.points.map((point) => ({
+      duration: point.duration,
+      fov: point.fov,
+      position: immersiveTourVectorToThree(point.position, immersiveTour),
+      target: immersiveTourVectorToThree(point.target, immersiveTour),
+    }));
+  }
+
   const safeWidth = Math.max(size.x, 1);
   const safeHeight = Math.max(size.y, 1);
   const safeDepth = Math.max(size.z, 1);
   const wideDimension = Math.max(safeWidth, safeDepth);
-  const highY = box.max.y + Math.max(safeHeight * 1.35, wideDimension * 0.28);
-  const flyY = box.max.y + Math.max(safeHeight * 1.05, wideDimension * 0.22);
-  const targetY = center.y + safeHeight * 0.12;
+  const highY = box.max.y + Math.max(safeHeight * 0.46, wideDimension * 0.13);
+  const midY = box.max.y + Math.max(safeHeight * 0.3, wideDimension * 0.08);
+  const closeY = box.max.y + Math.max(safeHeight * 0.2, wideDimension * 0.055);
+  const targetY = center.y + safeHeight * 0.1;
   const position = (x: number, y: number, z: number) =>
     new THREE.Vector3(center.x + safeWidth * x, y, center.z + safeDepth * z);
   const target = (x: number, z: number, y = targetY) =>
@@ -2279,34 +2391,34 @@ function createImmersiveTourPoints(
 
   return [
     {
-      duration: 8,
-      position: position(0, highY, 0.42),
-      target: target(0, 0.04),
+      duration: 5,
+      position: position(0.02, highY, 0.34),
+      target: target(0, 0.02, targetY + safeHeight * 0.07),
+    },
+    {
+      duration: 7,
+      position: position(-0.22, midY, 0.16),
+      target: target(-0.04, 0.01, targetY + safeHeight * 0.05),
     },
     {
       duration: 8,
-      position: position(-0.28, flyY, 0.26),
-      target: target(-0.04, 0.02),
+      position: position(-0.04, closeY, -0.02),
+      target: target(0.08, -0.04, targetY + safeHeight * 0.08),
     },
     {
-      duration: 9,
-      position: position(-0.1, flyY, -0.02),
-      target: target(0.06, -0.02, targetY + safeHeight * 0.04),
+      duration: 7,
+      position: position(0.2, closeY, -0.18),
+      target: target(0.05, -0.06, targetY + safeHeight * 0.05),
     },
     {
-      duration: 8,
-      position: position(0.28, flyY, -0.24),
-      target: target(0.04, -0.04),
+      duration: 7,
+      position: position(0.05, midY, -0.3),
+      target: target(0, -0.08, targetY + safeHeight * 0.04),
     },
     {
-      duration: 8,
-      position: position(0.06, highY, -0.42),
-      target: target(0, -0.06),
-    },
-    {
-      duration: 8,
-      position: position(0, highY, 0.42),
-      target: target(0, 0.04),
+      duration: 7,
+      position: position(0.02, highY, 0.34),
+      target: target(0, 0.02, targetY + safeHeight * 0.07),
     },
   ];
 }
@@ -2338,8 +2450,13 @@ function getImmersiveTourFrame(
     if (localTime <= elapsed + segmentDuration || index === points.length - 1) {
       const rawProgress = clamp((localTime - elapsed) / segmentDuration, 0, 1);
       const progress = smoothStep(rawProgress);
+      const fov =
+        typeof current.fov === "number" && typeof next.fov === "number"
+          ? current.fov + (next.fov - current.fov) * progress
+          : current.fov ?? next.fov;
 
       return {
+        fov,
         position: current.position.clone().lerp(next.position, progress),
         target: current.target.clone().lerp(next.target, progress),
       };
@@ -2349,9 +2466,21 @@ function getImmersiveTourFrame(
   }
 
   return {
+    fov: points[0].fov,
     position: points[0].position.clone(),
     target: points[0].target.clone(),
   };
+}
+
+function immersiveTourVectorToThree(
+  vector: ImmersiveTourVector,
+  tour: ImmersiveTourDefinition,
+) {
+  if (tour.coordinateSystem === "blender-z-up") {
+    return new THREE.Vector3(vector.x, vector.z, -vector.y);
+  }
+
+  return new THREE.Vector3(vector.x, vector.y, vector.z);
 }
 
 function applyImmersiveCameraPose(
@@ -2380,61 +2509,24 @@ function applyImmersiveCameraPose(
   camera.updateProjectionMatrix();
 }
 
-function applyCompassImmersiveCameraPose(
-  camera: THREE.PerspectiveCamera,
-  rig: ImmersiveCameraRig,
-  yaw: number,
-  pitch: number,
-  roll: number,
-) {
-  const orbitYaw = rig.baseYaw + yaw * IMMERSIVE_TRACKING_YAW_SENSITIVITY;
-  const elevation = clamp(
-    Math.PI * 0.34 - pitch * 0.92,
-    Math.PI * 0.18,
-    Math.PI * 0.46,
-  );
-  const orbitDistance = rig.lookDistance * 1.38;
-  const horizontalDistance = Math.cos(elevation) * orbitDistance;
-  const verticalDistance = Math.sin(elevation) * orbitDistance;
-  const rollOffset = roll * rig.lookDistance * 0.38;
-  const cameraOrigin = rig.target.clone().add(
-    new THREE.Vector3(
-      Math.sin(orbitYaw) * horizontalDistance + rollOffset,
-      verticalDistance,
-      Math.cos(orbitYaw) * horizontalDistance,
-    ),
-  );
-  const lookTarget = rig.target.clone().add(new THREE.Vector3(0, rig.lookDistance * 0.05, 0));
-
-  camera.position.copy(cameraOrigin);
-  camera.near = rig.near;
-  camera.far = rig.far;
-  camera.lookAt(lookTarget);
-  camera.rotateZ(clamp(
-    -roll * IMMERSIVE_TRACKING_ROLL_SENSITIVITY,
-    -Math.PI * 0.24,
-    Math.PI * 0.24,
-  ));
-  camera.updateProjectionMatrix();
-  camera.updateMatrixWorld(true);
-}
-
 function applyImmersiveTourCameraPose(
   camera: THREE.PerspectiveCamera,
   rig: ImmersiveCameraRig,
   frame: ImmersiveTourFrame,
   yaw: number,
   pitch: number,
-  roll: number,
 ) {
   const baseDirection = frame.target.clone().sub(frame.position);
-  const baseDistance = Math.max(baseDirection.length(), rig.lookDistance);
+  const baseDistance = Math.max(baseDirection.length(), rig.lookDistance * 0.7);
   const horizontalDistance = Math.hypot(baseDirection.x, baseDirection.z);
   const baseYaw = Math.atan2(baseDirection.x, -baseDirection.z);
   const basePitch = Math.atan2(baseDirection.y, Math.max(horizontalDistance, 0.001));
-  const resolvedYaw = baseYaw + yaw * IMMERSIVE_TOUR_HEAD_LOOK_WEIGHT;
+  const resolvedYaw =
+    baseYaw +
+    yaw * IMMERSIVE_SPACE_TOUR_HEAD_YAW_WEIGHT * IMMERSIVE_SPACE_TOUR_HEAD_YAW_DIRECTION;
   const resolvedPitch = clamp(
-    basePitch + pitch * IMMERSIVE_TOUR_HEAD_LOOK_WEIGHT,
+    basePitch +
+      pitch * IMMERSIVE_SPACE_TOUR_HEAD_PITCH_WEIGHT * IMMERSIVE_SPACE_TOUR_HEAD_PITCH_DIRECTION,
     -Math.PI * 0.49,
     Math.PI * 0.49,
   );
@@ -2446,16 +2538,12 @@ function applyImmersiveTourCameraPose(
   const lookTarget = frame.position.clone().add(lookDirection.multiplyScalar(baseDistance));
 
   camera.position.copy(frame.position);
+  if (typeof frame.fov === "number") {
+    camera.fov = frame.fov;
+  }
   camera.near = rig.near;
   camera.far = rig.far;
   camera.lookAt(lookTarget);
-  if (IMMERSIVE_TOUR_ROLL_WEIGHT > 0) {
-    camera.rotateZ(clamp(
-      -roll * IMMERSIVE_TOUR_ROLL_WEIGHT,
-      -Math.PI * 0.18,
-      Math.PI * 0.18,
-    ));
-  }
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld(true);
 }
@@ -2468,10 +2556,17 @@ function applyTrackedImmersiveTourCameraPose(
   currentOrientation: THREE.Quaternion,
 ) {
   camera.position.copy(frame.position);
+  if (typeof frame.fov === "number") {
+    camera.fov = frame.fov;
+  }
   camera.near = rig.near;
   camera.far = rig.far;
   camera.lookAt(frame.target);
-  camera.quaternion.multiply(referenceOrientation.clone().multiply(currentOrientation));
+  const relativeOrientation = referenceOrientation.clone().multiply(currentOrientation);
+  const relativeEuler = new THREE.Euler().setFromQuaternion(relativeOrientation, "YXZ");
+  relativeEuler.x *= IMMERSIVE_SPACE_TOUR_HEAD_PITCH_DIRECTION * IMMERSIVE_SPACE_TOUR_HEAD_PITCH_WEIGHT;
+  relativeEuler.y *= IMMERSIVE_SPACE_TOUR_HEAD_YAW_DIRECTION * IMMERSIVE_SPACE_TOUR_HEAD_YAW_WEIGHT;
+  camera.quaternion.multiply(new THREE.Quaternion().setFromEuler(relativeEuler));
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld(true);
 }
@@ -2565,8 +2660,12 @@ function getCompassOrientation(
   return { pitch, roll, yaw };
 }
 
-function applyTextureQuality(object: THREE.Object3D, maxAnisotropy: number) {
-  const anisotropy = Math.max(1, Math.min(maxAnisotropy, 8));
+function applyTextureQuality(
+  object: THREE.Object3D,
+  maxAnisotropy: number,
+  maxAllowedAnisotropy = 8,
+) {
+  const anisotropy = Math.max(1, Math.min(maxAnisotropy, maxAllowedAnisotropy));
 
   object.traverse((child) => {
     const material = (child as THREE.Mesh).material;
@@ -2579,6 +2678,42 @@ function applyTextureQuality(object: THREE.Object3D, maxAnisotropy: number) {
         texturedMaterial.map.needsUpdate = true;
       }
     });
+  });
+}
+
+function simplifyImmersiveMaterials(object: THREE.Object3D) {
+  object.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    const material = mesh.material;
+    if (!material) {
+      return;
+    }
+
+    const toFastMaterial = (item: THREE.Material) => {
+      const source = item as THREE.MeshStandardMaterial;
+      const fastMaterial = new THREE.MeshBasicMaterial({
+        alphaTest: source.alphaTest,
+        color: source.color?.clone() ?? new THREE.Color(0xffffff),
+        map: source.map ?? null,
+        opacity: source.opacity,
+        side: THREE.DoubleSide,
+        transparent: source.transparent || source.opacity < 1,
+        vertexColors: source.vertexColors,
+      });
+
+      fastMaterial.depthWrite = !fastMaterial.transparent;
+      fastMaterial.name = source.name ? `${source.name}-vr-fast` : "vr-fast-material";
+      fastMaterial.userData = {
+        ...fastMaterial.userData,
+        museiqRuntimeMaterial: true,
+      };
+
+      return fastMaterial;
+    };
+
+    mesh.material = Array.isArray(material)
+      ? material.map(toFastMaterial)
+      : toFastMaterial(material);
   });
 }
 
@@ -2600,6 +2735,13 @@ function disposeObject(object: THREE.Object3D) {
       userData?: { museiqSharedTemplate?: boolean };
     };
     if (mesh.userData?.museiqSharedTemplate) {
+      const material = mesh.material;
+      const materials = Array.isArray(material) ? material : material ? [material] : [];
+      materials.forEach((item) => {
+        if (item.userData?.museiqRuntimeMaterial) {
+          item.dispose();
+        }
+      });
       return;
     }
 

@@ -1,13 +1,11 @@
-import {
-  CabezaClavaModelView,
-  type HeadTrackingDebugState,
-} from "@/components/museiq/cabeza-clava-model-view";
+import { CabezaClavaModelView } from "@/components/museiq/cabeza-clava-model-view";
 import { arColors } from "@/components/museiq/ar-flow";
+import cabezaClavaTestGlb from "@/assets/models/cabeza_clava-2.glb";
 import { getRoomImmersiveExperience } from "@/lib/room-experiences";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -26,10 +24,16 @@ type MotionCapabilities = {
   gyroscopeAvailable: boolean | null;
   magnetometerAvailable: boolean | null;
 };
+type ImmersiveModelKey = "room" | "clava";
+
+const IMMERSIVE_TEST_MODEL = {
+  asset: cabezaClavaTestGlb,
+  label: "cabeza_clava-2.glb",
+};
 
 const ENABLE_VR_TERMINAL_LOGS = false;
-const VR_FRAME_HEIGHT_RATIO = 0.72;
-const VR_FRAME_WIDTH_RATIO = 0.82;
+const VR_FRAME_HEIGHT_RATIO = 1;
+const VR_FRAME_WIDTH_RATIO = 0.84;
 
 function logVr(...args: Parameters<typeof console.log>) {
   if (ENABLE_VR_TERMINAL_LOGS) {
@@ -48,8 +52,7 @@ export default function SalaInmersivaScreen() {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const { roomId } = useLocalSearchParams<{ roomId?: string }>();
   const experience = getRoomImmersiveExperience(roomId);
-  const [headTrackingDebug, setHeadTrackingDebug] = useState<HeadTrackingDebugState | null>(null);
-  const [motionCapabilities, setMotionCapabilities] = useState<MotionCapabilities>({
+  const [, setMotionCapabilities] = useState<MotionCapabilities>({
     accelerometerAvailable: null,
     deviceMotionAvailable: null,
     gyroscopeAvailable: null,
@@ -57,12 +60,9 @@ export default function SalaInmersivaScreen() {
   });
   const [motionPermissionState, setMotionPermissionState] =
     useState<MotionPermissionState>("checking");
-  const [isDebugCollapsed, setDebugCollapsed] = useState(true);
-  const lastTerminalLogAtRef = useRef(0);
-  const lastTerminalLogSignatureRef = useRef("");
+  const [activeModelKey, setActiveModelKey] = useState<ImmersiveModelKey>("room");
   const [modelCanMount, setModelCanMount] = useState(false);
-  const [recenterSignal, setRecenterSignal] = useState(0);
-  const [nativeLandscapeLockReady, setNativeLandscapeLockReady] = useState(false);
+  const [, setNativeLandscapeLockReady] = useState(false);
 
   useEffect(() => {
     if (!experience) {
@@ -291,67 +291,6 @@ export default function SalaInmersivaScreen() {
     };
   }, [experience, motionPermissionState, windowHeight, windowWidth]);
 
-  useEffect(() => {
-    const payload = {
-      dmAvail:
-        headTrackingDebug?.deviceMotionAvailable ?? motionCapabilities.deviceMotionAvailable,
-      accelAvail:
-        headTrackingDebug?.accelerometerAvailable ?? motionCapabilities.accelerometerAvailable,
-      dmEvents: headTrackingDebug?.deviceMotionEvents ?? 0,
-      error: headTrackingDebug?.error ?? null,
-      accel: [
-        formatMetric(headTrackingDebug?.accelX),
-        formatMetric(headTrackingDebug?.accelY),
-        formatMetric(headTrackingDebug?.accelZ),
-      ],
-      gyro: [
-        formatMetric(headTrackingDebug?.gyroX),
-        formatMetric(headTrackingDebug?.gyroY),
-        formatMetric(headTrackingDebug?.gyroZ),
-      ],
-      gyroAvail: headTrackingDebug?.gyroscopeAvailable ?? motionCapabilities.gyroscopeAvailable,
-      gyroEvents: headTrackingDebug?.gyroscopeEvents ?? 0,
-      mag: [
-        formatMetric(headTrackingDebug?.magX),
-        formatMetric(headTrackingDebug?.magY),
-        formatMetric(headTrackingDebug?.magZ),
-      ],
-      magAvail:
-        headTrackingDebug?.magnetometerAvailable ?? motionCapabilities.magnetometerAvailable,
-      magEvents: headTrackingDebug?.magnetometerEvents ?? 0,
-      permission: motionPermissionState,
-      pitch: formatMetric(headTrackingDebug?.pitch),
-      source: headTrackingDebug?.source ?? "none",
-      yaw: formatMetric(headTrackingDebug?.yaw),
-    };
-    const signature = JSON.stringify(payload);
-    const now = Date.now();
-    const enoughTimePassed = now - lastTerminalLogAtRef.current > 250;
-    const changed = signature !== lastTerminalLogSignatureRef.current;
-
-    if (!changed || !enoughTimePassed) {
-      return;
-    }
-
-    lastTerminalLogAtRef.current = now;
-    lastTerminalLogSignatureRef.current = signature;
-    logVr("[MuseIQ][VR]", payload);
-  }, [headTrackingDebug, motionCapabilities, motionPermissionState]);
-
-  useEffect(() => {
-    if (motionPermissionState !== "granted") {
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      setRecenterSignal((current) => current + 1);
-    }, 1200);
-
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [motionPermissionState]);
-
   if (!experience) {
     return (
       <View style={styles.screen}>
@@ -366,6 +305,13 @@ export default function SalaInmersivaScreen() {
   }
 
   const usesLandscapeFallback = Platform.OS === "android" && windowWidth < windowHeight;
+  const activeModel =
+    activeModelKey === "clava"
+      ? IMMERSIVE_TEST_MODEL
+      : {
+          asset: experience.modelAsset,
+          label: experience.modelLabel,
+        };
   const effectiveViewerWidth = usesLandscapeFallback ? windowHeight : windowWidth;
   const effectiveViewerHeight = usesLandscapeFallback ? windowWidth : windowHeight;
   const framedViewerWidth = Math.round(effectiveViewerWidth * VR_FRAME_WIDTH_RATIO);
@@ -401,13 +347,13 @@ export default function SalaInmersivaScreen() {
           <CabezaClavaModelView
             key={`${framedViewerWidth}x${framedViewerHeight}-${
               motionPermissionState === "granted" ? "tracked" : "manual"
-            }`}
+            }-${activeModelKey}`}
             headTracking={motionPermissionState === "granted"}
+            immersiveSubject={activeModelKey === "clava" ? "object" : "space"}
+            immersiveTour={activeModelKey === "clava" ? undefined : experience.tour}
             interactive={motionPermissionState !== "granted"}
-            modelAsset={experience.modelAsset}
-            modelLabel={experience.modelLabel}
-            onHeadTrackingDebug={setHeadTrackingDebug}
-            recenterSignal={recenterSignal}
+            modelAsset={activeModel.asset}
+            modelLabel={activeModel.label}
             stereo
             style={styles.model}
             viewMode="immersive"
@@ -431,82 +377,41 @@ export default function SalaInmersivaScreen() {
         >
           <Ionicons color="#FFFFFF" name="arrow-back" size={28} />
         </Pressable>
-        <View pointerEvents="box-none" style={styles.debugOverlay}>
-          {isDebugCollapsed ? (
-            <Pressable
-              onPress={() => setDebugCollapsed(false)}
-              style={({ pressed }) => [
-                styles.debugCollapsedButton,
-                pressed ? styles.pressed : null,
+        <View style={[styles.modelToggle, { top: insets.top + 10 }]}>
+          <Pressable
+            onPress={() => setActiveModelKey("room")}
+            style={({ pressed }) => [
+              styles.modelToggleOption,
+              activeModelKey === "room" ? styles.modelToggleOptionActive : null,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.modelToggleLabel,
+                activeModelKey === "room" ? styles.modelToggleLabelActive : null,
               ]}
             >
-              <Ionicons color="#7DD3FC" name="bug-outline" size={16} />
-              <Text style={styles.debugCollapsedLabel}>Debug</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.debugCard}>
-              <View style={styles.debugHeader}>
-                <Text style={styles.debugTitle}>VR Debug</Text>
-                <Pressable
-                  onPress={() => setDebugCollapsed(true)}
-                  style={({ pressed }) => [
-                    styles.debugCollapseButton,
-                    pressed ? styles.pressed : null,
-                  ]}
-                >
-                  <Ionicons color="#7DD3FC" name="chevron-up-outline" size={16} />
-                </Pressable>
-              </View>
-              <Text style={styles.debugLine}>
-                {`permiso=${motionPermissionState} source=${headTrackingDebug?.source ?? "none"}`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`native_landscape=${nativeLandscapeLockReady ? "si" : "no"} fallback=${usesLandscapeFallback ? "si" : "no"}`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`dm_avail=${formatFlag(headTrackingDebug?.deviceMotionAvailable ?? motionCapabilities.deviceMotionAvailable)} dm_events=${headTrackingDebug?.deviceMotionEvents ?? 0}`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`gyro_avail=${formatFlag(headTrackingDebug?.gyroscopeAvailable ?? motionCapabilities.gyroscopeAvailable)} gyro_events=${headTrackingDebug?.gyroscopeEvents ?? 0}`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`accel_avail=${formatFlag(headTrackingDebug?.accelerometerAvailable ?? motionCapabilities.accelerometerAvailable)} accel_events=${headTrackingDebug?.accelerometerEvents ?? 0}`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`mag_avail=${formatFlag(headTrackingDebug?.magnetometerAvailable ?? motionCapabilities.magnetometerAvailable)} mag_events=${headTrackingDebug?.magnetometerEvents ?? 0}`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`alpha=${formatMetric(headTrackingDebug?.alpha)} beta=${formatMetric(headTrackingDebug?.beta)}`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`accel=(${formatMetric(headTrackingDebug?.accelX)}, ${formatMetric(headTrackingDebug?.accelY)}, ${formatMetric(headTrackingDebug?.accelZ)})`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`gyro=(${formatMetric(headTrackingDebug?.gyroX)}, ${formatMetric(headTrackingDebug?.gyroY)}, ${formatMetric(headTrackingDebug?.gyroZ)})`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`mag=(${formatMetric(headTrackingDebug?.magX)}, ${formatMetric(headTrackingDebug?.magY)}, ${formatMetric(headTrackingDebug?.magZ)})`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`yaw=${formatMetric(headTrackingDebug?.yaw)} pitch=${formatMetric(headTrackingDebug?.pitch)}`}
-              </Text>
-              <Text style={styles.debugLine}>
-                {`error=${headTrackingDebug?.error ?? "--"} platform=${headTrackingDebug?.platform ?? Platform.OS}`}
-              </Text>
-              <Pressable
-                onPress={() => {
-                  setRecenterSignal((current) => current + 1);
-                }}
-                style={({ pressed }) => [
-                  styles.recenterButton,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <Ionicons color="#03131E" name="locate-outline" size={15} />
-                <Text style={styles.recenterButtonLabel}>Recentrar vista</Text>
-              </Pressable>
-            </View>
-          )}
+              Sala
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setActiveModelKey("clava")}
+            style={({ pressed }) => [
+              styles.modelToggleOption,
+              activeModelKey === "clava" ? styles.modelToggleOptionActive : null,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.modelToggleLabel,
+                activeModelKey === "clava" ? styles.modelToggleLabelActive : null,
+              ]}
+            >
+              Clava
+            </Text>
+          </Pressable>
         </View>
 
         {motionPermissionState !== "granted" ? (
@@ -548,22 +453,6 @@ export default function SalaInmersivaScreen() {
   );
 }
 
-function formatFlag(value: boolean | null | undefined) {
-  if (value === null || value === undefined) {
-    return "--";
-  }
-
-  return value ? "si" : "no";
-}
-
-function formatMetric(value: number | null | undefined) {
-  if (value === null || value === undefined || Number.isNaN(value)) {
-    return "--";
-  }
-
-  return value.toFixed(2);
-}
-
 const styles = StyleSheet.create({
   screen: {
     backgroundColor: "#05080D",
@@ -585,6 +474,39 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 58,
     zIndex: 30,
+  },
+  modelToggle: {
+    alignItems: "center",
+    backgroundColor: "rgba(5,8,13,0.76)",
+    borderColor: "rgba(255,255,255,0.16)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    minHeight: 36,
+    padding: 4,
+    position: "absolute",
+    right: 22,
+    zIndex: 32,
+  },
+  modelToggleOption: {
+    alignItems: "center",
+    borderRadius: 999,
+    justifyContent: "center",
+    minHeight: 28,
+    minWidth: 58,
+    paddingHorizontal: 10,
+  },
+  modelToggleOptionActive: {
+    backgroundColor: arColors.primary,
+  },
+  modelToggleLabel: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  modelToggleLabelActive: {
+    color: "#03131E",
   },
   viewerStage: {
     ...StyleSheet.absoluteFillObject,
@@ -608,77 +530,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "800",
-  },
-  debugOverlay: {
-    left: 16,
-    maxWidth: 320,
-    position: "absolute",
-    top: 140,
-    zIndex: 45,
-  },
-  debugCard: {
-    backgroundColor: "rgba(4,7,12,0.88)",
-    borderColor: "rgba(89,190,255,0.32)",
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  debugCollapsedButton: {
-    alignItems: "center",
-    backgroundColor: "rgba(4,7,12,0.82)",
-    borderColor: "rgba(89,190,255,0.32)",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    minHeight: 38,
-    paddingHorizontal: 13,
-  },
-  debugCollapsedLabel: {
-    color: "#D5ECFF",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  debugHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  debugCollapseButton: {
-    alignItems: "center",
-    height: 26,
-    justifyContent: "center",
-    width: 26,
-  },
-  debugTitle: {
-    color: "#7DD3FC",
-    fontSize: 12,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  debugLine: {
-    color: "#D5ECFF",
-    fontSize: 11,
-    fontWeight: "600",
-    lineHeight: 15,
-  },
-  recenterButton: {
-    alignItems: "center",
-    backgroundColor: "#7DD3FC",
-    borderRadius: 999,
-    flexDirection: "row",
-    gap: 6,
-    justifyContent: "center",
-    marginTop: 10,
-    minHeight: 34,
-    paddingHorizontal: 12,
-  },
-  recenterButtonLabel: {
-    color: "#03131E",
-    fontSize: 12,
-    fontWeight: "900",
   },
   permissionOverlay: {
     alignItems: "center",

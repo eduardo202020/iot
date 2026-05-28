@@ -70,7 +70,7 @@ En el flujo AR actual:
 - `Preguntar IA` abre `pregunta-voz-modal`.
 - `Audio` abre un bottom sheet local dentro de `ar-activo`.
 - `Escanear QR` abre otro bottom sheet local y permite saltar a otra obra sin ir a una pantalla de escáner separada.
-- `SALA_1` tiene una capability local de modo inmersivo en desarrollo: si la sala esta activa, la app ofrece `Entrar / Saltar`, precarga `assets/models/immersive/lugar.glb` y abre `sala-inmersiva`.
+- `SALA_1` tiene una capability local de modo inmersivo en desarrollo: si la sala esta activa, la app ofrece `Entrar / Saltar`, precarga `assets/models/immersive/lugar.glb` y abre `sala-inmersiva` con una ruta caminable exportada desde Muse3D.
 
 ## Variables de entorno
 
@@ -229,6 +229,9 @@ Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) +
 - CTA inferior de `Preguntar IA` como único acceso principal al modal de preguntas dentro del flujo AR
 - capability de sala inmersiva mediante `lib/room-experiences.ts`
 - carga y render de `assets/models/immersive/lugar.glb` en `sala-inmersiva`
+- rutas inmersivas tipadas en `lib/immersive-tours.ts`
+- conversion de coordenadas Blender `Z-up` a Three/GLTF dentro del visor 3D
+- tracking de cabeza durante el tour: la ruta mueve la posicion y los sensores controlan la mirada
 
 ## Roadmap técnico sugerido
 
@@ -236,7 +239,7 @@ El roadmap activo de producto y flujo vive en [ROADMAP.md](ROADMAP.md). A nivel 
 
 - conectar QR real con cámara y códigos de obra
 - definir el contrato `model_3d` y `hotspots` con MuseRAG
-- definir el contrato de sala inmersiva: capability, modelo de entorno y hotspots del espacio
+- definir el contrato remoto de sala inmersiva: capability, modelo de entorno, tour y hotspots del espacio
 - implementar el estado `T` de actualización disponible
 - implementar la pantalla dedicada `W Modelo 3D no disponible`
 - integrar AR real con ARCore/ARKit o alternativa compatible
@@ -246,7 +249,8 @@ Notas de implementación vigentes:
 - `ar-audio-activo.tsx` sigue existiendo como pantalla legada, pero el flujo principal ya usa un sheet de audio dentro de `ar-activo`.
 - `QrScannerOverlay` se reutiliza tanto en Home como dentro del sheet QR de `ar-activo`.
 - `components/museiq/ar-flow.tsx` concentra colores, HUD compartido y `ArSideRail`.
-- `lib/room-experiences.ts` concentra la capability inmersiva por sala y hoy mapea `SALA_1` a `assets/models/immersive/lugar.glb`.
+- `lib/room-experiences.ts` concentra la capability inmersiva por sala y hoy mapea `SALA_1` a `assets/models/immersive/lugar.glb` y `lugarWalkingTour`.
+- `lib/immersive-tours.ts` contiene el contrato local de tours. Por ahora se sincroniza manualmente desde `muse3d/routes/lugar-walking-tour.json`; mas adelante puede generarse automaticamente.
 
 ## Troubleshooting
 

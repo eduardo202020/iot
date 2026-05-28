@@ -1,4 +1,5 @@
 import lugarGlb from "@/assets/models/immersive/lugar.glb";
+import { lugarWalkingTour, type ImmersiveTourDefinition } from "@/lib/immersive-tours";
 
 export type RoomImmersiveExperience = {
   ctaLabel: string;
@@ -9,6 +10,7 @@ export type RoomImmersiveExperience = {
   promptTitle: string;
   roomId: string;
   title: string;
+  tour?: ImmersiveTourDefinition;
 };
 
 const immersiveRoomExperiences: Record<string, RoomImmersiveExperience> = {
@@ -22,6 +24,7 @@ const immersiveRoomExperiences: Record<string, RoomImmersiveExperience> = {
     ctaLabel: "Entrar al modo inmersivo",
     modelAsset: lugarGlb,
     modelLabel: "lugar.glb",
+    tour: lugarWalkingTour,
   },
 };
 

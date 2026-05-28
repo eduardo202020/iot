@@ -128,7 +128,8 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [ ] Tipos de datos para `model_3d` y `hotspots`.
 - [ ] Endpoint o payload MuseRAG con recursos AR.
 - [ ] Descarga/carga de GLB por obra, no solo assets locales de prueba.
-- [ ] Definir contrato de sala inmersiva: `immersive_mode`, `room_model_3d`, `room_hotspots`.
+- [x] Contrato local de sala inmersiva con modelo y tour (`lib/room-experiences.ts`, `lib/immersive-tours.ts`).
+- [ ] Definir contrato remoto de sala inmersiva: `immersive_mode`, `room_model_3d`, `room_tour`, `room_hotspots`.
 - [ ] Estado dedicado `W Modelo 3D no disponible`.
 - [x] Visor 3D sin AR base (`visor-3d.tsx`).
 - [x] Fallback base si ARCore/ARKit no está disponible (`ar-no-disponible.tsx`).
@@ -145,10 +146,12 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 
 - [x] Prompt contextual por sala con decision `Entrar / Saltar`.
 - [x] Pipeline base de carga para modelo de entorno (`cargando-inmersivo` -> `sala-inmersiva`).
+- [x] Pipeline Muse3D/Blender para construir tours con `Tour_XX` y `Target_XX`.
+- [x] Ruta caminable inicial para `lugar.glb` con primer punto panoramico y tracking de cabeza.
 - [ ] Multiplicar la capability inmersiva a mas salas.
 - [ ] Separar modo inmersivo movil de modo Cardboard estereoscópico.
 - [ ] Evaluar renderer VR/Cardboard compatible con Expo/React Native.
-- [ ] Definir navegacion interna, hotspots espaciales y narrativa para edificaciones 3D.
+- [ ] Definir hotspots espaciales y narrativa sincronizada para edificaciones 3D.
 
 ## Próximos pasos recomendados
 
@@ -156,7 +159,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 2. Implementar pantalla dedicada `W Modelo 3D no disponible`.
 3. Implementar QR real: cámara, parsing y mapping a obra usando las pantallas ya creadas de resultado inválido y entrada manual.
 4. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
-5. Definir contrato de capability inmersiva por sala y sustituir el mapping local de `SALA_1`.
+5. Definir contrato remoto de capability inmersiva por sala y sustituir el mapping local de `SALA_1`.
 6. Integrar AR real con ARCore/ARKit o alternativa compatible y probar en dispositivo físico.
 7. Reemplazar los datos locales de Idioma/Cambiar museo por persistencia y selección real cuando haya multi-museo.
 

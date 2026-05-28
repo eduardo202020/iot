@@ -49,7 +49,7 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 - Las preguntas se abren como modal inferior, no como pantalla independiente.
 - El detalle de obra se simplifica a `Detalles` e `Imagenes`.
 - El color principal es el azul MuseIQ `#1689CE`.
-- Algunas salas pueden anunciar un `modo inmersivo` a partir del contexto de sala y cargar una reconstruccion 3D propia.
+- Algunas salas pueden anunciar un `modo inmersivo` a partir del contexto de sala, cargar una reconstruccion 3D propia y reproducir un tour generado desde Muse3D/Blender.
 
 ## Flujo implementado
 
@@ -67,7 +67,7 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 12. Cargando AR, AR activo temporal y hotspot seleccionado.
 13. Chat IA como modal inferior y audio/QR como sheets dentro de `ar-activo`.
 14. AR no disponible con fallback a visor 3D.
-15. Modo inmersivo por sala: entrar o saltar, cargar `lugar.glb` y recorrer el espacio 3D.
+15. Modo inmersivo por sala: entrar o saltar, cargar `lugar.glb` y recorrer el espacio 3D con una ruta caminable.
 
 ## Flujo real en rutas
 
@@ -82,7 +82,7 @@ Ramas desde Home:
 - `Preguntar` -> `pregunta-voz-modal`
 - `Ver en AR` -> `cargando-ar` -> `ar-activo` -> `ar-hotspot-seleccionado`
 - Dentro de `ar-activo`: `Audio` -> bottom sheet, `Escanear QR` -> bottom sheet, `Preguntar IA` -> modal inferior
-- Sala con capability inmersiva -> prompt `Entrar / Saltar` -> `cargando-inmersivo` -> `sala-inmersiva`
+- Sala con capability inmersiva -> prompt `Entrar / Saltar` -> `cargando-inmersivo` -> `sala-inmersiva` con tour 3D
 - Fallback AR -> `ar-no-disponible` -> `visor-3d`
 
 ## Cobertura contra `pantallas/flujo.png`
@@ -128,7 +128,7 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - `cargando-ar.tsx`: Indicador de carga de AR
 - `cargando-inmersivo.tsx`: Carga de reconstruccion 3D para modo inmersivo
 - `visor-3d.tsx`: Visor 3D (sin integrar AR completo)
-- `sala-inmersiva.tsx`: Experiencia inmersiva por sala basada en un modelo 3D de entorno
+- `sala-inmersiva.tsx`: Experiencia inmersiva por sala basada en un modelo 3D de entorno y un tour exportado desde Muse3D
 - `ar-hotspot-seleccionado.tsx`: Hotspot seleccionado (estado)
 - `pregunta-voz-modal.tsx`: Modal inferior de preguntas con voz prioritaria, markdown y fuentes
 
@@ -195,6 +195,8 @@ En `ar-activo`, la experiencia tambien se simplificó: boton de retroceso superi
 
 En desarrollo, `SALA_1` ya expone una capability local de `modo inmersivo`. Cuando la app reconoce esa sala en el estado actual del recorrido, ofrece `Entrar` o `Saltar`, precarga `assets/models/immersive/lugar.glb` y abre una vista 3D del espacio.
 
+La sala inmersiva ya consume una ruta caminable `lugarWalkingTour`, generada en Muse3D desde Blender mediante camaras `Tour_XX` y targets `Target_XX`. La ruta se define originalmente en coordenadas Blender `Z-up`, se versiona como JSON en `muse3d/routes/lugar-walking-tour.json` y se refleja en `lib/immersive-tours.ts` para que la app la reproduzca. El visor convierte esas coordenadas a Three/GLTF y permite que el tour mueva la posicion mientras el visitante controla la mirada con el headset.
+
 El reconocimiento automatico de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. El QR real, AR real y carga de modelos 3D son las próximas integraciones fuertes.
 
 ## Documentación relacionada
@@ -203,3 +205,4 @@ El reconocimiento automatico de obra por BLE queda deliberadamente para el final
 - Roadmap de producto y flujo: [ROADMAP.md](ROADMAP.md)
 - URL de backend: [app.config.js](app.config.js)
 - Cliente de MuseRAG: [lib/muserag-api.ts](lib/muserag-api.ts)
+- Pipeline 3D y tours: [../muse3d/README.md](../muse3d/README.md)
