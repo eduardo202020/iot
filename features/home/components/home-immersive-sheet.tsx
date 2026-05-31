@@ -1,39 +1,60 @@
 import { musePalette } from "@/components/museiq/theme";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
+import { Ionicons } from "@expo/vector-icons";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type HomeImmersiveSheetProps = {
-  ctaLabel: string;
-  description: string;
+  experiences: RoomImmersiveExperience[];
   onClose: () => void;
-  onEnter: () => void;
+  onEnter: (experience: RoomImmersiveExperience) => void;
   roomName: string;
-  title: string;
 };
 
 export function HomeImmersiveSheet({
-  ctaLabel,
-  description,
+  experiences,
   onClose,
   onEnter,
   roomName,
-  title,
 }: HomeImmersiveSheetProps) {
   return (
     <View style={styles.sheetBackdrop}>
       <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
       <View style={styles.sheet}>
         <View style={styles.sheetHandle} />
-        <Text style={styles.eyebrow}>Sala detectada</Text>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.eyebrow}>Experiencias inmersivas</Text>
+        <Text style={styles.title}>Elige un recorrido</Text>
         <Text style={styles.roomName}>{roomName}</Text>
-        <Text style={styles.description}>{description}</Text>
+        <Text style={styles.description}>
+          Selecciona la reconstruccion 3D que quieres cargar en modo headset.
+        </Text>
 
-        <Pressable
-          onPress={onEnter}
-          style={({ pressed }) => [styles.primaryButton, pressed ? styles.pressed : null]}
+        <ScrollView
+          contentContainerStyle={styles.experienceList}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.primaryButtonText}>{ctaLabel}</Text>
-        </Pressable>
+          {experiences.map((experience) => (
+            <Pressable
+              key={experience.id}
+              onPress={() => onEnter(experience)}
+              style={({ pressed }) => [
+                styles.experienceCard,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <View style={styles.experienceIcon}>
+                <Ionicons color={musePalette.primary} name="glasses-outline" size={24} />
+              </View>
+              <View style={styles.experienceContent}>
+                <Text style={styles.experienceTitle}>{experience.title}</Text>
+                <Text numberOfLines={2} style={styles.experienceDescription}>
+                  {experience.description}
+                </Text>
+                <Text style={styles.experienceModel}>{experience.modelLabel}</Text>
+              </View>
+              <Ionicons color="rgba(255,255,255,0.64)" name="chevron-forward" size={20} />
+            </Pressable>
+          ))}
+        </ScrollView>
 
         <Pressable
           onPress={onClose}
@@ -59,6 +80,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     borderWidth: 1,
     gap: 12,
+    maxHeight: "78%",
     paddingBottom: 28,
     paddingHorizontal: 22,
     paddingTop: 14,
@@ -94,18 +116,50 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 21,
   },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: musePalette.primary,
-    borderRadius: 16,
-    justifyContent: "center",
-    minHeight: 54,
-    marginTop: 6,
+  experienceList: {
+    gap: 10,
+    paddingTop: 4,
   },
-  primaryButtonText: {
+  experienceCard: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    minHeight: 96,
+    padding: 14,
+  },
+  experienceIcon: {
+    alignItems: "center",
+    backgroundColor: "rgba(54,176,255,0.12)",
+    borderColor: "rgba(54,176,255,0.32)",
+    borderRadius: 16,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  experienceContent: {
+    flex: 1,
+    gap: 4,
+  },
+  experienceTitle: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "900",
+  },
+  experienceDescription: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 17,
+  },
+  experienceModel: {
+    color: musePalette.primarySoft,
+    fontSize: 11,
+    fontWeight: "800",
   },
   secondaryButton: {
     alignItems: "center",

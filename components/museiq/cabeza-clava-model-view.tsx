@@ -3,6 +3,7 @@ import type {
   ImmersiveTourDefinition,
   ImmersiveTourVector,
 } from "@/lib/immersive-tours";
+import type { SkyTextureAsset } from "@/lib/sky-assets";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
 import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
@@ -31,8 +32,10 @@ type CabezaClavaModelViewProps = {
   onHeadTrackingDebug?: (snapshot: HeadTrackingDebugState) => void;
   recenterSignal?: number;
   showStatus?: boolean;
+  skyTextureAsset?: SkyTextureAsset;
   stereo?: boolean;
   style?: StyleProp<ViewStyle>;
+  tourPlaybackPaused?: boolean;
   viewMode?: ModelViewMode;
 };
 
@@ -259,6 +262,7 @@ const identityQuaternion = new THREE.Quaternion();
 const embeddedTextureFileCache = new Map<string, Promise<EmbeddedTextureAsset>>();
 const preparedModelCache = new Map<ModelAsset, Promise<PreparedModelSource>>();
 const preparedModelTemplateCache = new Map<ModelAsset, Promise<THREE.Object3D>>();
+const skyTextureAssetCache = new Map<SkyTextureAsset, Promise<EmbeddedTextureAsset>>();
 
 function log3d(...args: Parameters<typeof console.log>) {
   if (ENABLE_3D_TERMINAL_LOGS) {
@@ -333,8 +337,10 @@ export function CabezaClavaModelView({
   onHeadTrackingDebug,
   recenterSignal = 0,
   showStatus = true,
+  skyTextureAsset,
   stereo = false,
   style,
+  tourPlaybackPaused = false,
   viewMode = "object",
 }: CabezaClavaModelViewProps) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -1236,6 +1242,7 @@ export function CabezaClavaModelView({
     let modelBaseScale = new THREE.Vector3(1, 1, 1);
     let cameraFit: CameraFit | null = null;
     let immersiveRig: ImmersiveCameraRig | null = null;
+    let skyDome: THREE.Mesh | null = null;
     let stereoCamera: THREE.StereoCamera | null = null;
 
     try {
@@ -1287,6 +1294,13 @@ export function CabezaClavaModelView({
         if (stereoCamera) {
           stereoCamera.eyeSep = Math.min(VR_EYE_SEPARATION, immersiveRig.lookDistance * 0.012);
         }
+        if (skyTextureAsset) {
+          skyDome = await createSkyDome(
+            skyTextureAsset,
+            Math.max(immersiveRig.far * 0.42, 36),
+          );
+          scene.add(skyDome);
+        }
         log3d("[MuseIQ][3D] Camara inmersiva lista", {
           elapsedMs: Date.now() - loadStartedAt,
         });
@@ -1328,13 +1342,17 @@ export function CabezaClavaModelView({
                 immersiveRig.subject === "space" && immersiveRig.tourPoints.length > 1;
 
               if (usesGuidedTour) {
-                if (guidedTourStartAtRef.current === null) {
+                if (tourPlaybackPaused) {
+                  guidedTourStartAtRef.current = null;
+                } else if (guidedTourStartAtRef.current === null) {
                   guidedTourStartAtRef.current = now;
                 }
 
                 const tourFrame = getImmersiveTourFrame(
                   immersiveRig,
-                  (now - guidedTourStartAtRef.current) / 1000,
+                  guidedTourStartAtRef.current === null
+                    ? 0
+                    : (now - guidedTourStartAtRef.current) / 1000,
                 );
 
                 if (
@@ -1465,6 +1483,9 @@ export function CabezaClavaModelView({
           }
         }
         if (renderer) {
+          if (skyDome) {
+            skyDome.position.copy(camera.position);
+          }
           if (usesStereo && stereoCamera) {
             renderStereoScene(renderer, scene, camera, stereoCamera, width, height);
           } else {
@@ -1505,6 +1526,8 @@ export function CabezaClavaModelView({
     isImmersive,
     modelAsset,
     modelLabel,
+    skyTextureAsset,
+    tourPlaybackPaused,
     usesAndroidHeadTracking,
     usesHeadTracking,
     usesStereo,
@@ -2110,6 +2133,78 @@ function createTextureFromEmbeddedAsset(asset: EmbeddedTextureAsset) {
   (texture as unknown as { isDataTexture: boolean }).isDataTexture = true;
 
   return texture;
+}
+
+async function loadSkyTextureAsset(assetModule: SkyTextureAsset) {
+  const cached = skyTextureAssetCache.get(assetModule);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = (async () => {
+    const asset = Asset.fromModule(assetModule);
+    await asset.downloadAsync();
+    const localUri = asset.localUri ?? asset.uri;
+
+    if (!localUri) {
+      throw new Error("Cielo sin URI local disponible");
+    }
+
+    if (typeof asset.width === "number" && typeof asset.height === "number") {
+      return {
+        height: asset.height,
+        localUri,
+        width: asset.width,
+      };
+    }
+
+    const bytes = Buffer.from(
+      await FileSystem.readAsStringAsync(localUri, { encoding: "base64" }),
+      "base64",
+    );
+    const dimensions = getJpegDimensions(bytes);
+    return {
+      height: dimensions.height,
+      localUri,
+      width: dimensions.width,
+    };
+  })();
+
+  skyTextureAssetCache.set(assetModule, promise);
+  return promise;
+}
+
+async function createSkyDome(assetModule: SkyTextureAsset, radius: number) {
+  const asset = await loadSkyTextureAsset(assetModule);
+  const texture = new THREE.Texture();
+
+  texture.image = {
+    data: asset,
+    height: asset.height,
+    width: asset.width,
+  } as never;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.flipY = false;
+  texture.generateMipmaps = false;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
+  (texture as unknown as { isDataTexture: boolean }).isDataTexture = true;
+
+  const geometry = new THREE.SphereGeometry(radius, 48, 24);
+  const material = new THREE.MeshBasicMaterial({
+    depthWrite: false,
+    map: texture,
+    side: THREE.BackSide,
+    toneMapped: false,
+  });
+  const dome = new THREE.Mesh(geometry, material);
+
+  dome.name = "MuseIQ_SkyDome";
+  dome.renderOrder = -1000;
+  return dome;
 }
 
 function createBufferAttribute(

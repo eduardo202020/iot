@@ -1,6 +1,6 @@
 import { ArSceneBackground, arColors } from "@/components/museiq/ar-flow";
 import { prepareCabezaClavaModel } from "@/components/museiq/cabeza-clava-model-view";
-import { getRoomImmersiveExperience } from "@/lib/room-experiences";
+import { getImmersiveExperience, getRoomImmersiveExperience } from "@/lib/room-experiences";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -9,8 +9,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CargandoInmersivoScreen() {
-  const { roomId } = useLocalSearchParams<{ roomId?: string }>();
-  const experience = getRoomImmersiveExperience(roomId);
+  const { experienceId, roomId } = useLocalSearchParams<{
+    experienceId?: string;
+    roomId?: string;
+  }>();
+  const experience = getImmersiveExperience(experienceId) ?? getRoomImmersiveExperience(roomId);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -34,7 +37,7 @@ export default function CargandoInmersivoScreen() {
         setTimeout(() => {
           router.replace({
             pathname: "/sala-inmersiva",
-            params: { roomId: experience.roomId },
+            params: { experienceId: experience.id },
           } as never);
         }, 180);
       })

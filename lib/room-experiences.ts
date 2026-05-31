@@ -1,37 +1,35 @@
-import lugarGlb from "@/assets/models/immersive/lugar.glb";
-import { lugarWalkingTour, type ImmersiveTourDefinition } from "@/lib/immersive-tours";
+import { immersiveRoomExperiences } from "@/lib/immersive-experiences.generated";
+import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
 
-export type RoomImmersiveExperience = {
-  ctaLabel: string;
-  description: string;
-  id: string;
-  modelAsset: number;
-  modelLabel: string;
-  promptTitle: string;
-  roomId: string;
-  title: string;
-  tour?: ImmersiveTourDefinition;
-};
+export type { RoomImmersiveExperience };
 
-const immersiveRoomExperiences: Record<string, RoomImmersiveExperience> = {
-  SALA_1: {
-    id: "immersive-sala-1",
-    roomId: "SALA_1",
-    title: "Sala inmersiva Sipan",
-    promptTitle: "Modo inmersivo disponible",
-    description:
-      "Esta sala ofrece una reconstruccion 3D para recorrer el espacio desde dentro antes de continuar con la visita normal.",
-    ctaLabel: "Entrar al modo inmersivo",
-    modelAsset: lugarGlb,
-    modelLabel: "lugar.glb",
-    tour: lugarWalkingTour,
-  },
-};
+export function getAllRoomImmersiveExperiences() {
+  return immersiveRoomExperiences;
+}
 
-export function getRoomImmersiveExperience(roomId?: string) {
-  if (!roomId) {
+export function getImmersiveExperience(experienceId?: string) {
+  if (!experienceId) {
     return undefined;
   }
 
-  return immersiveRoomExperiences[roomId];
+  return immersiveRoomExperiences.find((experience) => experience.id === experienceId);
+}
+
+export function getRoomImmersiveExperience(roomIdOrExperienceId?: string) {
+  if (!roomIdOrExperienceId) {
+    return undefined;
+  }
+
+  return (
+    getImmersiveExperience(roomIdOrExperienceId) ??
+    immersiveRoomExperiences.find((experience) => experience.roomId === roomIdOrExperienceId)
+  );
+}
+
+export function getRoomImmersiveExperiences(roomId?: string) {
+  if (!roomId) {
+    return immersiveRoomExperiences;
+  }
+
+  return immersiveRoomExperiences.filter((experience) => experience.roomId === roomId);
 }

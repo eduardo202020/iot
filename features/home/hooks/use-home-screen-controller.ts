@@ -1,7 +1,11 @@
 import { useHomeBleStatus } from "@/hooks/use-home-ble-status";
 import { useHomeSensors } from "@/hooks/use-home-sensors";
 import { getArtworkImageSource } from "@/lib/artwork-images";
-import { getRoomImmersiveExperience } from "@/lib/room-experiences";
+import {
+  getAllRoomImmersiveExperiences,
+  getRoomImmersiveExperiences,
+} from "@/lib/room-experiences";
+import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -69,7 +73,11 @@ export function useHomeScreenController() {
   const roomName = activeRoom?.name ?? "Buscando sala";
   const topRoomLabel = isRoomDetected ? roomName : "Reconociendo sala";
   const centralLabel = shouldShowSuggestionCta ? "Ver sugerencia" : "Preguntar";
-  const immersiveExperience = getRoomImmersiveExperience(activeRoom?.id);
+  const roomImmersiveExperiences = getRoomImmersiveExperiences(activeRoom?.id);
+  const immersiveExperiences =
+    roomImmersiveExperiences.length > 0
+      ? roomImmersiveExperiences
+      : getAllRoomImmersiveExperiences();
 
   useEffect(() => {
     if (!hasNearbySuggestion || !suggestedArtwork?.id || isSuggestionDismissed) {
@@ -136,22 +144,22 @@ export function useHomeScreenController() {
   };
 
   const openImmersivePrompt = () => {
-    if (!immersiveExperience) {
+    if (immersiveExperiences.length === 0) {
       return;
     }
 
     setActiveSheet("immersive");
   };
 
-  const openImmersiveExperience = () => {
-    if (!immersiveExperience) {
+  const openImmersiveExperience = (experience: RoomImmersiveExperience) => {
+    if (!experience) {
       return;
     }
 
     setActiveSheet(null);
     router.push({
       pathname: "/cargando-inmersivo",
-      params: { roomId: immersiveExperience.roomId },
+      params: { experienceId: experience.id },
     } as never);
   };
 
@@ -201,7 +209,7 @@ export function useHomeScreenController() {
     repeatArtworkNarration,
     roomArtworks,
     roomName,
-    immersiveExperience,
+    immersiveExperiences,
     sensorPanelProps: {
       accelerometerStatus,
       bleStatus: bleError ? `error - ${bleError}` : bleStatusLabel,

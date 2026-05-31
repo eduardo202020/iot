@@ -1,7 +1,8 @@
 import { CabezaClavaModelView } from "@/components/museiq/cabeza-clava-model-view";
 import { arColors } from "@/components/museiq/ar-flow";
 import cabezaClavaTestGlb from "@/assets/models/cabeza_clava-2.glb";
-import { getRoomImmersiveExperience } from "@/lib/room-experiences";
+import { getImmersiveExperience, getRoomImmersiveExperience } from "@/lib/room-experiences";
+import { getCurrentSkyTextureAsset } from "@/lib/sky-assets";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -32,6 +33,7 @@ const IMMERSIVE_TEST_MODEL = {
 };
 
 const ENABLE_VR_TERMINAL_LOGS = false;
+const HEADSET_COUNTDOWN_SECONDS = 5;
 const VR_FRAME_HEIGHT_RATIO = 1;
 const VR_FRAME_WIDTH_RATIO = 0.84;
 
@@ -50,8 +52,11 @@ function warnVr(...args: Parameters<typeof console.warn>) {
 export default function SalaInmersivaScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
-  const { roomId } = useLocalSearchParams<{ roomId?: string }>();
-  const experience = getRoomImmersiveExperience(roomId);
+  const { experienceId, roomId } = useLocalSearchParams<{
+    experienceId?: string;
+    roomId?: string;
+  }>();
+  const experience = getImmersiveExperience(experienceId) ?? getRoomImmersiveExperience(roomId);
   const [, setMotionCapabilities] = useState<MotionCapabilities>({
     accelerometerAvailable: null,
     deviceMotionAvailable: null,
@@ -63,6 +68,9 @@ export default function SalaInmersivaScreen() {
   const [activeModelKey, setActiveModelKey] = useState<ImmersiveModelKey>("room");
   const [modelCanMount, setModelCanMount] = useState(false);
   const [, setNativeLandscapeLockReady] = useState(false);
+  const [tourCanPlay, setTourCanPlay] = useState(false);
+  const [tourCountdown, setTourCountdown] = useState(HEADSET_COUNTDOWN_SECONDS);
+  const hasGuidedTour = activeModelKey === "room" && Boolean(experience?.tour?.points.length);
 
   useEffect(() => {
     if (!experience) {
@@ -291,6 +299,39 @@ export default function SalaInmersivaScreen() {
     };
   }, [experience, motionPermissionState, windowHeight, windowWidth]);
 
+  useEffect(() => {
+    if (!hasGuidedTour) {
+      setTourCanPlay(true);
+      setTourCountdown(0);
+      return;
+    }
+
+    if (!modelCanMount) {
+      setTourCanPlay(false);
+      setTourCountdown(HEADSET_COUNTDOWN_SECONDS);
+      return;
+    }
+
+    setTourCanPlay(false);
+    setTourCountdown(HEADSET_COUNTDOWN_SECONDS);
+
+    const interval = setInterval(() => {
+      setTourCountdown((currentCountdown) => {
+        if (currentCountdown <= 1) {
+          clearInterval(interval);
+          setTourCanPlay(true);
+          return 0;
+        }
+
+        return currentCountdown - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [experience?.id, hasGuidedTour, modelCanMount]);
+
   if (!experience) {
     return (
       <View style={styles.screen}>
@@ -312,6 +353,7 @@ export default function SalaInmersivaScreen() {
           asset: experience.modelAsset,
           label: experience.modelLabel,
         };
+  const skyTextureAsset = getCurrentSkyTextureAsset();
   const effectiveViewerWidth = usesLandscapeFallback ? windowHeight : windowWidth;
   const effectiveViewerHeight = usesLandscapeFallback ? windowWidth : windowHeight;
   const framedViewerWidth = Math.round(effectiveViewerWidth * VR_FRAME_WIDTH_RATIO);
@@ -354,8 +396,10 @@ export default function SalaInmersivaScreen() {
             interactive={motionPermissionState !== "granted"}
             modelAsset={activeModel.asset}
             modelLabel={activeModel.label}
+            skyTextureAsset={skyTextureAsset}
             stereo
             style={styles.model}
+            tourPlaybackPaused={hasGuidedTour && !tourCanPlay}
             viewMode="immersive"
           />
         ) : (
@@ -365,6 +409,18 @@ export default function SalaInmersivaScreen() {
           </View>
         )}
       </View>
+
+      {modelCanMount && hasGuidedTour && !tourCanPlay ? (
+        <View pointerEvents="none" style={styles.headsetCountdownOverlay}>
+          <View style={styles.headsetCountdownCard}>
+            <Text style={styles.headsetCountdownKicker}>Prepara el visor</Text>
+            <Text style={styles.headsetCountdownNumber}>{tourCountdown}</Text>
+            <Text style={styles.headsetCountdownText}>
+              Ponte el headset. El recorrido iniciara automaticamente.
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <SafeAreaView edges={["top", "left", "right"]} style={styles.overlaySafeArea}>
         <Pressable
@@ -530,6 +586,44 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "800",
+  },
+  headsetCountdownOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.42)",
+    justifyContent: "center",
+    zIndex: 24,
+  },
+  headsetCountdownCard: {
+    alignItems: "center",
+    backgroundColor: "rgba(5,8,13,0.84)",
+    borderColor: "rgba(255,255,255,0.18)",
+    borderRadius: 28,
+    borderWidth: 1,
+    gap: 8,
+    maxWidth: 280,
+    paddingHorizontal: 24,
+    paddingVertical: 22,
+  },
+  headsetCountdownKicker: {
+    color: arColors.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  headsetCountdownNumber: {
+    color: "#FFFFFF",
+    fontSize: 58,
+    fontWeight: "900",
+    lineHeight: 64,
+  },
+  headsetCountdownText: {
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+    textAlign: "center",
   },
   permissionOverlay: {
     alignItems: "center",

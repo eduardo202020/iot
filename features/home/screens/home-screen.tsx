@@ -24,7 +24,7 @@ export default function HomeScreen() {
     debugModeEnabled,
     dismissImmersivePrompt,
     dismissSuggestion,
-    immersiveExperience,
+    immersiveExperiences,
     isArtworkNarrationPlaying,
     isRoomDetected,
     isSuggestionVisible,
@@ -132,14 +132,12 @@ export default function HomeScreen() {
         />
       ) : null}
 
-      {activeSheet === "immersive" && immersiveExperience ? (
+      {activeSheet === "immersive" && immersiveExperiences.length > 0 ? (
         <HomeImmersiveSheet
-          ctaLabel={immersiveExperience.ctaLabel}
-          description={immersiveExperience.description}
+          experiences={immersiveExperiences}
           onClose={dismissImmersivePrompt}
           onEnter={openImmersiveExperience}
           roomName={roomName}
-          title={immersiveExperience.promptTitle}
         />
       ) : null}
 
