@@ -49,7 +49,8 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 - Las preguntas se abren como modal inferior, no como pantalla independiente.
 - El detalle de obra se simplifica a `Detalles` e `Imagenes`.
 - El color principal es el azul MuseIQ `#1689CE`.
-- Algunas salas pueden anunciar un `modo inmersivo` a partir del contexto de sala, cargar una reconstruccion 3D propia y reproducir un tour generado desde Muse3D/Blender.
+- Algunas salas pueden anunciar un `modo inmersivo` a partir del contexto de sala, mostrar una lista de experiencias 3D y reproducir tours generados desde Muse3D/Blender.
+- La sala inmersiva usa vista estereoscopica SBS para headset, temporizador previo, tracking de cabeza y rutas caminables por posicion.
 
 ## Flujo implementado
 
@@ -67,7 +68,7 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 12. Cargando AR, AR activo temporal y hotspot seleccionado.
 13. Chat IA como modal inferior y audio/QR como sheets dentro de `ar-activo`.
 14. AR no disponible con fallback a visor 3D.
-15. Modo inmersivo por sala: entrar o saltar, cargar `lugar.glb` y recorrer el espacio 3D con una ruta caminable.
+15. Modo inmersivo por sala: entrar o saltar, elegir experiencia, cargar el GLB correspondiente y recorrer el espacio 3D con una ruta caminable.
 
 ## Flujo real en rutas
 
@@ -82,7 +83,7 @@ Ramas desde Home:
 - `Preguntar` -> `pregunta-voz-modal`
 - `Ver en AR` -> `cargando-ar` -> `ar-activo` -> `ar-hotspot-seleccionado`
 - Dentro de `ar-activo`: `Audio` -> bottom sheet, `Escanear QR` -> bottom sheet, `Preguntar IA` -> modal inferior
-- Sala con capability inmersiva -> prompt `Entrar / Saltar` -> `cargando-inmersivo` -> `sala-inmersiva` con tour 3D
+- Sala con capability inmersiva -> prompt `Entrar / Saltar` -> lista de experiencias -> `cargando-inmersivo` -> `sala-inmersiva` con tour 3D
 - Fallback AR -> `ar-no-disponible` -> `visor-3d`
 
 ## Cobertura contra `pantallas/flujo.png`
@@ -135,10 +136,12 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 ## Pantallas o funcionalidades pendientes
 
 - QR real con cámara, parsing y mapping a obra.
+- Completar la superficie terrestre del modo inmersivo para que el entorno no parezca una isla aislada.
+- Añadir narración sincronizada con el avance del tour en la sala inmersiva.
 - Estado de resiliencia: Actualización disponible.
 - Detección automática de conectividad para abrir Sin conexión/Error de conexión sin depender de una acción manual.
 - Estado dedicado de Modelo 3D no disponible.
-- Extender el modo inmersivo de sala a mas de una sala y decidir si evoluciona a Cardboard/VR estereoscópico.
+- Extender el modo inmersivo de sala a mas salas y mejorar su acabado visual/narrativo.
 - Sincronización de idioma, museo seleccionado, favoritos y actividad local con backend.
 - Descarga y renderizado final de modelos 3D por obra en AR.
 
@@ -153,6 +156,7 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - Imágenes relacionadas y fuentes visuales.
 - Progreso local y analítica básica.
 - Modo técnico con BLE, sensores y depuración.
+- Tours inmersivos con vista SBS, countdown de headset, tracking de cabeza y rutas exportadas desde Muse3D.
 
 ## Arquitectura visual reciente
 
@@ -193,9 +197,11 @@ En `ar-activo`, la experiencia tambien se simplificó: boton de retroceso superi
 
 `obra-identificada` tambien se simplificó: boton de retroceso superior izquierdo, `Audio` superior derecho, card central mas grande y un unico CTA horizontal de `Ver en AR`.
 
-En desarrollo, `SALA_1` ya expone una capability local de `modo inmersivo`. Cuando la app reconoce esa sala en el estado actual del recorrido, ofrece `Entrar` o `Saltar`, precarga `assets/models/immersive/lugar.glb` y abre una vista 3D del espacio.
+En desarrollo, `SALA_1` ya expone una capability local de `modo inmersivo`. Cuando la app reconoce esa sala en el estado actual del recorrido, ofrece `Entrar` o `Saltar`, muestra experiencias inmersivas disponibles y abre una vista SBS pensada para headset.
 
-La sala inmersiva ya consume una ruta caminable `lugarWalkingTour`, generada en Muse3D desde Blender mediante camaras `Tour_XX` y targets `Target_XX`. La ruta se define originalmente en coordenadas Blender `Z-up`, se versiona como JSON en `muse3d/routes/lugar-walking-tour.json` y se refleja en `lib/immersive-tours.ts` para que la app la reproduzca. El visor convierte esas coordenadas a Three/GLTF y permite que el tour mueva la posicion mientras el visitante controla la mirada con el headset.
+La sala inmersiva ya consume rutas caminables generadas en Muse3D desde Blender mediante camaras `Tour_XX` y targets `Target_XX`. Las rutas se definen originalmente en coordenadas Blender `Z-up`, se versionan como JSON en `muse3d/routes/` y se reflejan en `lib/immersive-tours.ts` para que la app las reproduzca. El visor convierte esas coordenadas a Three/GLTF y permite que el tour mueva la posicion mientras el visitante controla la mirada con el headset.
+
+El visor inmersivo ya incluye countdown para colocarse el headset, render estereoscopico SBS, tracking de mirada con mayor sensibilidad arriba/abajo e izquierda/derecha, cielo de entorno y una primera base de terreno rocoso. La siguiente mejora visual es extender esa superficie terrestre a todo el suelo para que el modelo deje de sentirse como una isla flotante. La siguiente mejora narrativa es reproducir audio guiado sincronizado con cada tramo del tour.
 
 El reconocimiento automatico de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. El QR real, AR real y carga de modelos 3D son las próximas integraciones fuertes.
 

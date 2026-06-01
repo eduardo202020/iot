@@ -1,6 +1,6 @@
 # Roadmap MuseIQ AR-first
 
-Actualizado: 2026-05-23
+Actualizado: 2026-05-31
 
 Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real presente en `app/`. Si las referencias de `pantallas/` no están disponibles en el repo local, usa este archivo y `README.md` como fuente de verdad operativa. El objetivo es convertir MuseIQ en una guía inmersiva, sobria y museográfica, sin perder las funciones ya existentes de BLE, MuseRAG, voz, imágenes y modo técnico.
 
@@ -14,6 +14,8 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - Preguntar debe sentirse como un modal contextual que emerge sobre la experiencia.
 - Escanear QR dentro de AR debe sentirse como sheet contextual, no como salida a otra pantalla.
 - Algunas salas pueden declarar una capability de `modo inmersivo`, ofrecer `Entrar / Saltar` y cargar un modelo 3D del espacio.
+- El modo inmersivo debe permitir elegir entre varias experiencias de una sala, reproducir un tour caminable y dejar que el headset controle la mirada.
+- La narracion del modo inmersivo debe acompañar el recorrido segun el tramo actual, no sonar como audio aislado.
 - La interfaz usa azul MuseIQ como color primario, con botones de borde en el HUD.
 - El modo técnico queda separado del visitante común.
 
@@ -62,7 +64,10 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] `12 Chat IA (bottom sheet/modal)`: flujo de preguntar como modal inferior (`app/pregunta-voz-modal.tsx`).
 - [x] `9 Audio activo`: sheet contextual dentro de `ar-activo`; `app/ar-audio-activo.tsx` queda como pantalla legada de apoyo.
 - [x] `Y Modo inmersivo por sala`: prompt `Entrar / Saltar` disparado por capability de sala en Home.
-- [x] `Z Sala inmersiva 3D`: carga y render de `assets/models/immersive/lugar.glb` en `app/sala-inmersiva.tsx`.
+- [x] `Z Sala inmersiva 3D`: carga y render de experiencias GLB locales en `app/sala-inmersiva.tsx`.
+- [x] Lista de experiencias inmersivas por sala, generada desde Muse3D.
+- [x] Vista SBS/Cardboard con countdown de headset y tracking de cabeza.
+- [x] Terreno rocoso base para reducir la sensacion de isla flotante.
 - [x] `V AR no disponible`: fallback a visor 3D (`app/ar-no-disponible.tsx`).
 - [x] `U Visor 3D sin AR`: visor 3D (`app/visor-3d.tsx`).
 - [ ] AR real con ARCore/ARKit o librería equivalente.
@@ -129,7 +134,9 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [ ] Endpoint o payload MuseRAG con recursos AR.
 - [ ] Descarga/carga de GLB por obra, no solo assets locales de prueba.
 - [x] Contrato local de sala inmersiva con modelo y tour (`lib/room-experiences.ts`, `lib/immersive-tours.ts`).
+- [x] Manifiesto generado de experiencias inmersivas (`lib/immersive-experiences.generated.ts`).
 - [ ] Definir contrato remoto de sala inmersiva: `immersive_mode`, `room_model_3d`, `room_tour`, `room_hotspots`.
+- [ ] Definir contrato de narracion por tramo para tours inmersivos.
 - [ ] Estado dedicado `W Modelo 3D no disponible`.
 - [x] Visor 3D sin AR base (`visor-3d.tsx`).
 - [x] Fallback base si ARCore/ARKit no está disponible (`ar-no-disponible.tsx`).
@@ -148,20 +155,25 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] Pipeline base de carga para modelo de entorno (`cargando-inmersivo` -> `sala-inmersiva`).
 - [x] Pipeline Muse3D/Blender para construir tours con `Tour_XX` y `Target_XX`.
 - [x] Ruta caminable inicial para `lugar.glb` con primer punto panoramico y tracking de cabeza.
+- [x] Lista local de experiencias inmersivas para no reemplazar manualmente un GLB por otro.
+- [x] Vista estereoscopica SBS con temporizador de 5 segundos para ponerse el headset.
+- [x] Ajuste de sensibilidad de mirada para mayor rango arriba/abajo e izquierda/derecha.
+- [x] Cielo de entorno y terreno rocoso base durante el render inmersivo.
+- [ ] Completar la superficie terrestre a todo el suelo visible para eliminar la sensacion de isla.
+- [ ] Narracion sincronizada con el avance del tour.
 - [ ] Multiplicar la capability inmersiva a mas salas.
-- [ ] Separar modo inmersivo movil de modo Cardboard estereoscópico.
-- [ ] Evaluar renderer VR/Cardboard compatible con Expo/React Native.
 - [ ] Definir hotspots espaciales y narrativa sincronizada para edificaciones 3D.
 
 ## Próximos pasos recomendados
 
-1. Integrar estado `T`: actualización disponible.
-2. Implementar pantalla dedicada `W Modelo 3D no disponible`.
-3. Implementar QR real: cámara, parsing y mapping a obra usando las pantallas ya creadas de resultado inválido y entrada manual.
-4. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
-5. Definir contrato remoto de capability inmersiva por sala y sustituir el mapping local de `SALA_1`.
-6. Integrar AR real con ARCore/ARKit o alternativa compatible y probar en dispositivo físico.
-7. Reemplazar los datos locales de Idioma/Cambiar museo por persistencia y selección real cuando haya multi-museo.
+1. Completar la superficie terrestre del modo inmersivo para cubrir todo el suelo visible y evitar que los modelos parezcan islas.
+2. Añadir narracion sincronizada con el tour: cada tramo debe activar su texto/audio conforme avanza el visitante.
+3. Integrar estado `T`: actualización disponible.
+4. Implementar pantalla dedicada `W Modelo 3D no disponible`.
+5. Implementar QR real: cámara, parsing y mapping a obra usando las pantallas ya creadas de resultado inválido y entrada manual.
+6. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
+7. Definir contrato remoto de capability inmersiva por sala y sustituir el mapping local de `SALA_1`.
+8. Integrar AR real con ARCore/ARKit o alternativa compatible y probar en dispositivo físico.
 
 ## Validación esperada
 

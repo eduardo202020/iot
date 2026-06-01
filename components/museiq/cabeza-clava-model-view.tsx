@@ -1,4 +1,7 @@
 import { DEFAULT_ARTWORK_MODEL, getArtworkModelAssetForArtwork } from "@/lib/artwork-models";
+import terrainDiffuseTexture from "@/assets/textures/terrain/rocky_terrain_02_diff_1k.jpg";
+import terrainNormalTexture from "@/assets/textures/terrain/rocky_terrain_02_nor_gl_1k.png";
+import terrainRoughnessTexture from "@/assets/textures/terrain/rocky_terrain_02_rough_1k.png";
 import type {
   ImmersiveTourDefinition,
   ImmersiveTourVector,
@@ -135,6 +138,7 @@ type EmbeddedTextureAsset = {
   localUri: string;
   width: number;
 };
+type TextureAsset = number | string;
 
 type CameraFit = {
   distance: number;
@@ -230,24 +234,34 @@ const MODEL_WIDTH_FILL_RATIO = 0.98;
 const MAX_MODEL_ZOOM = 3.4;
 const MIN_MODEL_ZOOM = 0.72;
 const MAX_VERTICAL_ROTATION = Math.PI * 0.32;
-const MAX_IMMERSIVE_PITCH = Math.PI * 0.42;
-const IMMERSIVE_TRACKING_PITCH_SENSITIVITY = 1.55;
-const IMMERSIVE_TRACKING_YAW_SENSITIVITY = 1.35;
-const IMMERSIVE_TRACKING_SMOOTHING = 0.42;
-const IMMERSIVE_TOUR_YAW_SMOOTHING = 0.72;
+const MAX_IMMERSIVE_PITCH = Math.PI * 0.47;
+const IMMERSIVE_TRACKING_PITCH_SENSITIVITY = 1.85;
+const IMMERSIVE_TRACKING_YAW_SENSITIVITY = 1.75;
+const IMMERSIVE_TRACKING_SMOOTHING = 0.5;
+const IMMERSIVE_SENSOR_YAW_DEADZONE = 0.01;
+const IMMERSIVE_SENSOR_PITCH_DEADZONE = 0.008;
+const IMMERSIVE_SENSOR_YAW_SMOOTHING = 0.24;
+const IMMERSIVE_SENSOR_PITCH_SMOOTHING = 0.28;
+const IMMERSIVE_TOUR_YAW_SMOOTHING = 0.34;
 const IMMERSIVE_TOUR_PITCH_SMOOTHING = 0.36;
-const IMMERSIVE_TILT_YAW_ASSIST = 0.72;
+const IMMERSIVE_TILT_YAW_ASSIST = 0.95;
 const IMMERSIVE_COMPASS_YAW_WEIGHT = 1;
-const IMMERSIVE_SPACE_TOUR_HEAD_YAW_WEIGHT = 1;
-const IMMERSIVE_SPACE_TOUR_HEAD_PITCH_WEIGHT = 0.46;
+const IMMERSIVE_SPACE_TOUR_HEAD_YAW_WEIGHT = 1.65;
+const IMMERSIVE_SPACE_TOUR_HEAD_PITCH_WEIGHT = 1.18;
 const IMMERSIVE_SPACE_TOUR_HEAD_YAW_DIRECTION = -1;
 const IMMERSIVE_SPACE_TOUR_HEAD_PITCH_DIRECTION = -1;
+const IMMERSIVE_MIN_TOUR_FOV = 35;
+const IMMERSIVE_MAX_TOUR_FOV = 82;
 const ENABLE_3D_TERMINAL_LOGS = false;
 const ENABLE_VR_PERFORMANCE_LOGS = false;
 const VR_PERFORMANCE_LOG_INTERVAL_MS = 1000;
 const VR_EYE_SEPARATION = 0.024;
 const IMMERSIVE_STEREO_TARGET_FRAME_MS = 1000 / 30;
 const IMMERSIVE_TEXTURE_MAX_ANISOTROPY = 2;
+const IMMERSIVE_TERRAIN_EXTRA_RADIUS = 0.58;
+const IMMERSIVE_TERRAIN_MIN_SIZE = 34;
+const IMMERSIVE_TERRAIN_REPEAT_METERS = 5.5;
+const IMMERSIVE_TERRAIN_Y_OFFSET = 0.035;
 const deviceOrientationAxis = new THREE.Vector3(0, 0, 1);
 const deviceOrientationEuler = new THREE.Euler();
 const deviceOrientationScreenQuaternion = new THREE.Quaternion();
@@ -263,6 +277,12 @@ const embeddedTextureFileCache = new Map<string, Promise<EmbeddedTextureAsset>>(
 const preparedModelCache = new Map<ModelAsset, Promise<PreparedModelSource>>();
 const preparedModelTemplateCache = new Map<ModelAsset, Promise<THREE.Object3D>>();
 const skyTextureAssetCache = new Map<SkyTextureAsset, Promise<EmbeddedTextureAsset>>();
+const terrainTextureAssetCache = new Map<TextureAsset, Promise<EmbeddedTextureAsset>>();
+const immersiveTerrainTextures = {
+  diffuse: terrainDiffuseTexture,
+  normal: terrainNormalTexture,
+  roughness: terrainRoughnessTexture,
+} satisfies Record<string, TextureAsset>;
 
 function log3d(...args: Parameters<typeof console.log>) {
   if (ENABLE_3D_TERMINAL_LOGS) {
@@ -360,6 +380,7 @@ export function CabezaClavaModelView({
   const autoRotateRef = useRef(autoRotate);
   const guidedTourStartAtRef = useRef<number | null>(null);
   const hasUserInteractedRef = useRef(false);
+  const tourPlaybackPausedRef = useRef(tourPlaybackPaused);
   const deviceOrientationRef = useRef<THREE.Quaternion | null>(null);
   const deviceOrientationReferenceRef = useRef<THREE.Quaternion | null>(null);
   const gyroscopeOrientationRef = useRef<THREE.Quaternion | null>(null);
@@ -415,6 +436,10 @@ export function CabezaClavaModelView({
   useEffect(() => {
     autoRotateRef.current = autoRotate;
   }, [autoRotate]);
+
+  useEffect(() => {
+    tourPlaybackPausedRef.current = tourPlaybackPaused;
+  }, [tourPlaybackPaused]);
 
   const emitDebugSnapshot = useCallback(
     (force = false) => {
@@ -679,21 +704,28 @@ export function CabezaClavaModelView({
           );
           if (updateYaw && typeof orientation.yaw === "number") {
             const compassYaw = normalizeAngle(orientation.yaw - reference.yaw);
-            trackedYawRef.current = lerpAngle(
-              tiltYawAssist,
-              compassYaw,
-              IMMERSIVE_COMPASS_YAW_WEIGHT,
+            trackedYawRef.current = smoothTrackedAngle(
+              trackedYawRef.current,
+              lerpAngle(
+                tiltYawAssist,
+                compassYaw,
+                IMMERSIVE_COMPASS_YAW_WEIGHT,
+              ),
             );
           } else {
-            trackedYawRef.current = lerpAngle(
+            trackedYawRef.current = smoothTrackedAngle(
               trackedYawRef.current,
               tiltYawAssist,
-              IMMERSIVE_TRACKING_SMOOTHING,
             );
           }
           trackedRollRef.current = rollDelta;
-          trackedPitchRef.current = clamp(
-            pitchDelta + rollDelta * 0.25,
+          trackedPitchRef.current = smoothTrackedValue(
+            trackedPitchRef.current,
+            clamp(
+              pitchDelta + rollDelta * 0.25,
+              -MAX_IMMERSIVE_PITCH,
+              MAX_IMMERSIVE_PITCH,
+            ),
             -MAX_IMMERSIVE_PITCH,
             MAX_IMMERSIVE_PITCH,
           );
@@ -883,9 +915,17 @@ export function CabezaClavaModelView({
             if (!reference || !("alpha" in reference)) {
               return;
             }
-            trackedYawRef.current = normalizeAngle(alpha - reference.alpha);
-            trackedPitchRef.current = clamp(
-              beta - reference.beta,
+            trackedYawRef.current = smoothTrackedAngle(
+              trackedYawRef.current,
+              normalizeAngle(alpha - reference.alpha),
+            );
+            trackedPitchRef.current = smoothTrackedValue(
+              trackedPitchRef.current,
+              clamp(
+                beta - reference.beta,
+                -MAX_IMMERSIVE_PITCH,
+                MAX_IMMERSIVE_PITCH,
+              ),
               -MAX_IMMERSIVE_PITCH,
               MAX_IMMERSIVE_PITCH,
             );
@@ -1018,21 +1058,28 @@ export function CabezaClavaModelView({
                 );
                 if (updateYaw && typeof orientation.yaw === "number") {
                   const compassYaw = normalizeAngle(orientation.yaw - reference.yaw);
-                  trackedYawRef.current = lerpAngle(
-                    tiltYawAssist,
-                    compassYaw,
-                    IMMERSIVE_COMPASS_YAW_WEIGHT,
+                  trackedYawRef.current = smoothTrackedAngle(
+                    trackedYawRef.current,
+                    lerpAngle(
+                      tiltYawAssist,
+                      compassYaw,
+                      IMMERSIVE_COMPASS_YAW_WEIGHT,
+                    ),
                   );
                 } else {
-                  trackedYawRef.current = lerpAngle(
+                  trackedYawRef.current = smoothTrackedAngle(
                     trackedYawRef.current,
                     tiltYawAssist,
-                    IMMERSIVE_TRACKING_SMOOTHING,
                   );
                 }
                 trackedRollRef.current = rollDelta;
-                trackedPitchRef.current = clamp(
-                  pitchDelta + rollDelta * 0.25,
+                trackedPitchRef.current = smoothTrackedValue(
+                  trackedPitchRef.current,
+                  clamp(
+                    pitchDelta + rollDelta * 0.25,
+                    -MAX_IMMERSIVE_PITCH,
+                    MAX_IMMERSIVE_PITCH,
+                  ),
                   -MAX_IMMERSIVE_PITCH,
                   MAX_IMMERSIVE_PITCH,
                 );
@@ -1243,6 +1290,7 @@ export function CabezaClavaModelView({
     let cameraFit: CameraFit | null = null;
     let immersiveRig: ImmersiveCameraRig | null = null;
     let skyDome: THREE.Mesh | null = null;
+    let terrainGround: THREE.Mesh | null = null;
     let stereoCamera: THREE.StereoCamera | null = null;
 
     try {
@@ -1301,6 +1349,15 @@ export function CabezaClavaModelView({
           );
           scene.add(skyDome);
         }
+        try {
+          terrainGround = await createImmersiveTerrainGround(
+            model,
+            renderer.capabilities.getMaxAnisotropy(),
+          );
+          scene.add(terrainGround);
+        } catch (error) {
+          warn3d("[MuseIQ][3D] No se pudo crear terreno inmersivo", error);
+        }
         log3d("[MuseIQ][3D] Camara inmersiva lista", {
           elapsedMs: Date.now() - loadStartedAt,
         });
@@ -1342,7 +1399,7 @@ export function CabezaClavaModelView({
                 immersiveRig.subject === "space" && immersiveRig.tourPoints.length > 1;
 
               if (usesGuidedTour) {
-                if (tourPlaybackPaused) {
+                if (tourPlaybackPausedRef.current) {
                   guidedTourStartAtRef.current = null;
                 } else if (guidedTourStartAtRef.current === null) {
                   guidedTourStartAtRef.current = now;
@@ -1527,7 +1584,6 @@ export function CabezaClavaModelView({
     modelAsset,
     modelLabel,
     skyTextureAsset,
-    tourPlaybackPaused,
     usesAndroidHeadTracking,
     usesHeadTracking,
     usesStereo,
@@ -2135,8 +2191,11 @@ function createTextureFromEmbeddedAsset(asset: EmbeddedTextureAsset) {
   return texture;
 }
 
-async function loadSkyTextureAsset(assetModule: SkyTextureAsset) {
-  const cached = skyTextureAssetCache.get(assetModule);
+async function loadTextureAsset(
+  assetModule: TextureAsset,
+  cache: Map<TextureAsset, Promise<EmbeddedTextureAsset>>,
+) {
+  const cached = cache.get(assetModule);
   if (cached) {
     return cached;
   }
@@ -2162,7 +2221,7 @@ async function loadSkyTextureAsset(assetModule: SkyTextureAsset) {
       await FileSystem.readAsStringAsync(localUri, { encoding: "base64" }),
       "base64",
     );
-    const dimensions = getJpegDimensions(bytes);
+    const dimensions = getRasterImageDimensions(bytes, localUri);
     return {
       height: dimensions.height,
       localUri,
@@ -2170,12 +2229,30 @@ async function loadSkyTextureAsset(assetModule: SkyTextureAsset) {
     };
   })();
 
-  skyTextureAssetCache.set(assetModule, promise);
+  cache.set(assetModule, promise);
   return promise;
 }
 
-async function createSkyDome(assetModule: SkyTextureAsset, radius: number) {
-  const asset = await loadSkyTextureAsset(assetModule);
+async function loadSkyTextureAsset(assetModule: SkyTextureAsset) {
+  return loadTextureAsset(assetModule, skyTextureAssetCache);
+}
+
+async function loadTerrainTextureAsset(assetModule: TextureAsset) {
+  return loadTextureAsset(assetModule, terrainTextureAssetCache);
+}
+
+function createRuntimeTexture(
+  asset: EmbeddedTextureAsset,
+  {
+    colorSpace = THREE.NoColorSpace,
+    repeat = 1,
+    useMipmaps = true,
+  }: {
+    colorSpace?: THREE.ColorSpace;
+    repeat?: number;
+    useMipmaps?: boolean;
+  } = {},
+) {
   const texture = new THREE.Texture();
 
   texture.image = {
@@ -2183,15 +2260,28 @@ async function createSkyDome(assetModule: SkyTextureAsset, radius: number) {
     height: asset.height,
     width: asset.width,
   } as never;
-  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.colorSpace = colorSpace;
   texture.flipY = false;
-  texture.generateMipmaps = false;
+  texture.generateMipmaps = useMipmaps;
   texture.magFilter = THREE.LinearFilter;
-  texture.minFilter = THREE.LinearFilter;
+  texture.minFilter = useMipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+  texture.repeat.set(repeat, repeat);
   texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
   texture.needsUpdate = true;
   (texture as unknown as { isDataTexture: boolean }).isDataTexture = true;
+
+  return texture;
+}
+
+async function createSkyDome(assetModule: SkyTextureAsset, radius: number) {
+  const asset = await loadSkyTextureAsset(assetModule);
+  const texture = createRuntimeTexture(asset, {
+    colorSpace: THREE.SRGBColorSpace,
+    useMipmaps: false,
+  });
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
 
   const geometry = new THREE.SphereGeometry(radius, 48, 24);
   const material = new THREE.MeshBasicMaterial({
@@ -2205,6 +2295,58 @@ async function createSkyDome(assetModule: SkyTextureAsset, radius: number) {
   dome.name = "MuseIQ_SkyDome";
   dome.renderOrder = -1000;
   return dome;
+}
+
+async function createImmersiveTerrainGround(
+  model: THREE.Object3D,
+  maxAnisotropy: number,
+) {
+  model.updateWorldMatrix(true, true);
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const horizontalSize = Math.max(size.x, size.z, 1);
+  const terrainSize = Math.max(
+    horizontalSize * (1 + IMMERSIVE_TERRAIN_EXTRA_RADIUS * 2),
+    IMMERSIVE_TERRAIN_MIN_SIZE,
+  );
+  const repeat = Math.max(4, Math.round(terrainSize / IMMERSIVE_TERRAIN_REPEAT_METERS));
+  const [diffuseAsset, roughnessAsset, normalAsset] = await Promise.all([
+    loadTerrainTextureAsset(immersiveTerrainTextures.diffuse),
+    loadTerrainTextureAsset(immersiveTerrainTextures.roughness),
+    loadTerrainTextureAsset(immersiveTerrainTextures.normal),
+  ]);
+  const map = createRuntimeTexture(diffuseAsset, {
+    colorSpace: THREE.SRGBColorSpace,
+    repeat,
+  });
+  const roughnessMap = createRuntimeTexture(roughnessAsset, { repeat });
+  const normalMap = createRuntimeTexture(normalAsset, { repeat });
+  const anisotropy = Math.max(1, Math.min(maxAnisotropy, IMMERSIVE_TEXTURE_MAX_ANISOTROPY));
+
+  map.anisotropy = anisotropy;
+  roughnessMap.anisotropy = anisotropy;
+  normalMap.anisotropy = anisotropy;
+
+  const geometry = new THREE.PlaneGeometry(terrainSize, terrainSize, 1, 1);
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xd7c8ae,
+    map,
+    metalness: 0,
+    normalMap,
+    roughness: 0.96,
+    roughnessMap,
+    side: THREE.FrontSide,
+  });
+  material.normalScale.set(0.35, 0.35);
+
+  const ground = new THREE.Mesh(geometry, material);
+  ground.name = "MuseIQ_RockyTerrain";
+  ground.position.set(center.x, box.min.y - IMMERSIVE_TERRAIN_Y_OFFSET, center.z);
+  ground.rotation.x = -Math.PI / 2;
+  ground.renderOrder = -20;
+
+  return ground;
 }
 
 function createBufferAttribute(
@@ -2465,7 +2607,7 @@ function createImmersiveTourPoints(
   if (immersiveTour?.points.length) {
     return immersiveTour.points.map((point) => ({
       duration: point.duration,
-      fov: point.fov,
+      fov: sanitizeTourFov(point.fov),
       position: immersiveTourVectorToThree(point.position, immersiveTour),
       target: immersiveTourVectorToThree(point.target, immersiveTour),
     }));
@@ -2634,7 +2776,7 @@ function applyImmersiveTourCameraPose(
 
   camera.position.copy(frame.position);
   if (typeof frame.fov === "number") {
-    camera.fov = frame.fov;
+    camera.fov = sanitizeTourFov(frame.fov) ?? camera.fov;
   }
   camera.near = rig.near;
   camera.far = rig.far;
@@ -2652,7 +2794,7 @@ function applyTrackedImmersiveTourCameraPose(
 ) {
   camera.position.copy(frame.position);
   if (typeof frame.fov === "number") {
-    camera.fov = frame.fov;
+    camera.fov = sanitizeTourFov(frame.fov) ?? camera.fov;
   }
   camera.near = rig.near;
   camera.far = rig.far;
@@ -2889,6 +3031,44 @@ function normalizeAngle(value: number) {
 
 function lerpAngle(current: number, target: number, amount: number) {
   return current + normalizeAngle(target - current) * amount;
+}
+
+function smoothTrackedAngle(current: number, target: number) {
+  const delta = normalizeAngle(target - current);
+  if (Math.abs(delta) < IMMERSIVE_SENSOR_YAW_DEADZONE) {
+    return current;
+  }
+
+  return current + delta * IMMERSIVE_SENSOR_YAW_SMOOTHING;
+}
+
+function smoothTrackedValue(current: number, target: number, min: number, max: number) {
+  const delta = target - current;
+  if (Math.abs(delta) < IMMERSIVE_SENSOR_PITCH_DEADZONE) {
+    return current;
+  }
+
+  return clamp(current + delta * IMMERSIVE_SENSOR_PITCH_SMOOTHING, min, max);
+}
+
+function sanitizeTourFov(fov?: number) {
+  if (typeof fov !== "number" || Number.isNaN(fov)) {
+    return undefined;
+  }
+
+  return clamp(fov, IMMERSIVE_MIN_TOUR_FOV, IMMERSIVE_MAX_TOUR_FOV);
+}
+
+function getRasterImageDimensions(bytes: Buffer, uri: string) {
+  const lowerUri = uri.toLowerCase();
+  if (lowerUri.endsWith(".png")) {
+    return {
+      height: bytes.readUInt32BE(20),
+      width: bytes.readUInt32BE(16),
+    };
+  }
+
+  return getJpegDimensions(bytes);
 }
 
 function getEmbeddedImageDimensions(bytes: Buffer, mimeType?: string) {

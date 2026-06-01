@@ -1,9 +1,23 @@
 // Archivo generado por muse3d.py. No editar a mano.
 import lugarGlb from "@/assets/models/immersive/lugar.glb";
+import puertaMonumentalIncaGlb from "@/assets/models/immersive/puerta_monumental_inca.glb";
+import ushnu2Glb from "@/assets/models/immersive/ushnu-2.glb";
+import ushnuGlb from "@/assets/models/immersive/ushnu.glb";
 import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
-import { lugarWalkingTour } from "@/lib/immersive-tours";
+import { lugarWalkingTour, puertaMonumentalIncaWalkingTour, ushnu2WalkingTour, ushnuWalkingTour } from "@/lib/immersive-tours";
 
 export const immersiveRoomExperiences: RoomImmersiveExperience[] = [
+  {
+    id: "immersive-puerta-monumental-inca",
+    roomId: "SALA_1",
+    title: "Puerta Monumental Inca",
+    promptTitle: "Modo inmersivo disponible",
+    description: "Recorrido inmersivo por una reconstruccion 3D preparada para headset.",
+    ctaLabel: "Entrar al modo inmersivo",
+    modelAsset: puertaMonumentalIncaGlb,
+    modelLabel: "puerta_monumental_inca.glb",
+    tour: puertaMonumentalIncaWalkingTour,
+  },
   {
     id: "immersive-sala-1",
     roomId: "SALA_1",
@@ -14,5 +28,27 @@ export const immersiveRoomExperiences: RoomImmersiveExperience[] = [
     modelAsset: lugarGlb,
     modelLabel: "lugar.glb",
     tour: lugarWalkingTour,
+  },
+  {
+    id: "immersive-ushnu",
+    roomId: "SALA_1",
+    title: "Ushnu",
+    promptTitle: "Modo inmersivo disponible",
+    description: "Recorrido inmersivo por una reconstruccion 3D preparada para headset.",
+    ctaLabel: "Entrar al modo inmersivo",
+    modelAsset: ushnuGlb,
+    modelLabel: "ushnu.glb",
+    tour: ushnuWalkingTour,
+  },
+  {
+    id: "immersive-ushnu-2",
+    roomId: "SALA_1",
+    title: "Ushnu 2",
+    promptTitle: "Modo inmersivo disponible",
+    description: "Recorrido inmersivo por una reconstruccion 3D preparada para headset.",
+    ctaLabel: "Entrar al modo inmersivo",
+    modelAsset: ushnu2Glb,
+    modelLabel: "ushnu-2.glb",
+    tour: ushnu2WalkingTour,
   },
 ];
