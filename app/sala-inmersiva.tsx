@@ -1,12 +1,17 @@
-import { CabezaClavaModelView } from "@/components/museiq/cabeza-clava-model-view";
+import {
+  CabezaClavaModelView,
+  type ImmersiveTourSegmentState,
+} from "@/components/museiq/cabeza-clava-model-view";
 import { arColors } from "@/components/museiq/ar-flow";
 import cabezaClavaTestGlb from "@/assets/models/cabeza_clava-2.glb";
 import { getImmersiveExperience, getRoomImmersiveExperience } from "@/lib/room-experiences";
+import { getImmersiveNarrationCaptions } from "@/lib/immersive-tours";
 import { getCurrentSkyTextureAsset } from "@/lib/sky-assets";
 import { Ionicons } from "@expo/vector-icons";
+import * as Speech from "expo-speech";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -36,6 +41,7 @@ const ENABLE_VR_TERMINAL_LOGS = false;
 const HEADSET_COUNTDOWN_SECONDS = 5;
 const VR_FRAME_HEIGHT_RATIO = 1;
 const VR_FRAME_WIDTH_RATIO = 0.84;
+const NARRATION_DEFAULT_RATE = 0.88;
 
 function logVr(...args: Parameters<typeof console.log>) {
   if (ENABLE_VR_TERMINAL_LOGS) {
@@ -70,7 +76,52 @@ export default function SalaInmersivaScreen() {
   const [, setNativeLandscapeLockReady] = useState(false);
   const [tourCanPlay, setTourCanPlay] = useState(false);
   const [tourCountdown, setTourCountdown] = useState(HEADSET_COUNTDOWN_SECONDS);
+  const [activeTourSegment, setActiveTourSegment] =
+    useState<ImmersiveTourSegmentState | null>(null);
+  const lastSpokenSegmentKeyRef = useRef<string | null>(null);
   const hasGuidedTour = activeModelKey === "room" && Boolean(experience?.tour?.points.length);
+  const activeNarration =
+    tourCanPlay && activeModelKey === "room" ? activeTourSegment?.narration : undefined;
+  const activeCaptions = useMemo(
+    () => getImmersiveNarrationCaptions(activeNarration),
+    [activeNarration],
+  );
+  const activeCaptionIndex =
+    activeCaptions.length > 0 && activeTourSegment
+      ? Math.min(
+          activeCaptions.length - 1,
+          Math.max(0, Math.floor(activeTourSegment.progress * activeCaptions.length)),
+        )
+      : -1;
+  const activeNarrationKey =
+    activeNarration?.text && activeTourSegment
+      ? `${experience?.id ?? "immersive"}:${activeTourSegment.pointId}`
+      : null;
+  const shouldShowStereoCaptions =
+    activeCaptions.length > 0 && tourCanPlay && activeModelKey === "room";
+
+  const renderStereoCaption = (eyeKey: "left" | "right") => (
+    <View key={eyeKey} style={styles.stereoCaptionEye}>
+      <View style={styles.stereoCaptionContent}>
+        {activeNarration?.title ? (
+          <Text numberOfLines={1} style={styles.stereoCaptionTitle}>
+            {activeNarration.title}
+          </Text>
+        ) : null}
+        <Text numberOfLines={3} style={styles.stereoCaptionText}>
+          {activeCaptions.map((caption, index) => (
+            <Text
+              key={`${activeTourSegment?.pointId ?? "caption"}-${eyeKey}-${index}`}
+              style={index === activeCaptionIndex ? styles.stereoCaptionTextActive : undefined}
+            >
+              {caption}
+              {index < activeCaptions.length - 1 ? " " : ""}
+            </Text>
+          ))}
+        </Text>
+      </View>
+    </View>
+  );
 
   useEffect(() => {
     if (!experience) {
@@ -303,12 +354,14 @@ export default function SalaInmersivaScreen() {
     if (!hasGuidedTour) {
       setTourCanPlay(true);
       setTourCountdown(0);
+      setActiveTourSegment(null);
       return;
     }
 
     if (!modelCanMount) {
       setTourCanPlay(false);
       setTourCountdown(HEADSET_COUNTDOWN_SECONDS);
+      setActiveTourSegment(null);
       return;
     }
 
@@ -331,6 +384,57 @@ export default function SalaInmersivaScreen() {
       clearInterval(interval);
     };
   }, [experience?.id, hasGuidedTour, modelCanMount]);
+
+  useEffect(() => {
+    if (!tourCanPlay || activeModelKey !== "room" || !activeNarrationKey || !activeNarration) {
+      lastSpokenSegmentKeyRef.current = null;
+      Speech.stop().catch(() => undefined);
+      return;
+    }
+
+    if (lastSpokenSegmentKeyRef.current === activeNarrationKey) {
+      return;
+    }
+
+    let isCancelled = false;
+    lastSpokenSegmentKeyRef.current = activeNarrationKey;
+
+    const speakSegment = async () => {
+      try {
+        await Speech.stop();
+        if (isCancelled) {
+          return;
+        }
+
+        Speech.speak(activeNarration.text, {
+          language: "es-PE",
+          pitch: 1,
+          rate: activeNarration.speechRate ?? NARRATION_DEFAULT_RATE,
+          onDone: () => {
+            if (!isCancelled) {
+              // Keep subtitles visible until the tour moves to the next segment.
+            }
+          },
+          onError: () => undefined,
+          onStopped: () => undefined,
+        });
+      } catch {
+        // La narracion es complementaria: si TTS falla, el tour y subtitulos continuan.
+      }
+    };
+
+    speakSegment();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeModelKey, activeNarration, activeNarrationKey, tourCanPlay]);
+
+  useEffect(() => {
+    return () => {
+      Speech.stop().catch(() => undefined);
+    };
+  }, []);
 
   if (!experience) {
     return (
@@ -396,6 +500,7 @@ export default function SalaInmersivaScreen() {
             interactive={motionPermissionState !== "granted"}
             modelAsset={activeModel.asset}
             modelLabel={activeModel.label}
+            onTourSegmentChange={setActiveTourSegment}
             skyTextureAsset={skyTextureAsset}
             stereo
             style={styles.model}
@@ -408,6 +513,12 @@ export default function SalaInmersivaScreen() {
             <Text style={styles.modelBootText}>Inicializando sensores</Text>
           </View>
         )}
+        {shouldShowStereoCaptions ? (
+          <View pointerEvents="none" style={styles.stereoCaptionLayer}>
+            {renderStereoCaption("left")}
+            {renderStereoCaption("right")}
+          </View>
+        ) : null}
       </View>
 
       {modelCanMount && hasGuidedTour && !tourCanPlay ? (
@@ -624,6 +735,47 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 18,
     textAlign: "center",
+  },
+  stereoCaptionLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "flex-end",
+    flexDirection: "row",
+    paddingBottom: 20,
+    zIndex: 26,
+  },
+  stereoCaptionEye: {
+    alignItems: "center",
+    flex: 1,
+    paddingHorizontal: 18,
+  },
+  stereoCaptionContent: {
+    maxWidth: 360,
+    width: "100%",
+  },
+  stereoCaptionTitle: {
+    color: arColors.primary,
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+    textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.92)",
+    textShadowOffset: { height: 1, width: 0 },
+    textShadowRadius: 5,
+    textTransform: "uppercase",
+  },
+  stereoCaptionText: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
+    textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.96)",
+    textShadowOffset: { height: 1, width: 0 },
+    textShadowRadius: 6,
+  },
+  stereoCaptionTextActive: {
+    color: "#FFD65A",
   },
   permissionOverlay: {
     alignItems: "center",

@@ -2,9 +2,11 @@ import { DEFAULT_ARTWORK_MODEL, getArtworkModelAssetForArtwork } from "@/lib/art
 import terrainDiffuseTexture from "@/assets/textures/terrain/rocky_terrain_02_diff_1k.jpg";
 import terrainNormalTexture from "@/assets/textures/terrain/rocky_terrain_02_nor_gl_1k.png";
 import terrainRoughnessTexture from "@/assets/textures/terrain/rocky_terrain_02_rough_1k.png";
-import type {
-  ImmersiveTourDefinition,
-  ImmersiveTourVector,
+import {
+  estimateImmersiveNarrationDuration,
+  type ImmersiveTourDefinition,
+  type ImmersiveTourNarration,
+  type ImmersiveTourVector,
 } from "@/lib/immersive-tours";
 import type { SkyTextureAsset } from "@/lib/sky-assets";
 import { Asset } from "expo-asset";
@@ -33,6 +35,7 @@ type CabezaClavaModelViewProps = {
   modelAsset?: ModelAsset;
   modelLabel?: string;
   onHeadTrackingDebug?: (snapshot: HeadTrackingDebugState) => void;
+  onTourSegmentChange?: (segment: ImmersiveTourSegmentState | null) => void;
   recenterSignal?: number;
   showStatus?: boolean;
   skyTextureAsset?: SkyTextureAsset;
@@ -162,14 +165,31 @@ type ImmersiveCameraRig = {
 type ImmersiveTourPoint = {
   duration: number;
   fov?: number;
+  id: string;
+  narration?: ImmersiveTourNarration;
   position: THREE.Vector3;
   target: THREE.Vector3;
 };
 
 type ImmersiveTourFrame = {
+  elapsedSeconds: number;
   fov?: number;
+  narration?: ImmersiveTourNarration;
+  pointId: string;
+  pointIndex: number;
   position: THREE.Vector3;
+  progress: number;
+  segmentDuration: number;
   target: THREE.Vector3;
+};
+
+export type ImmersiveTourSegmentState = {
+  elapsedSeconds: number;
+  narration?: ImmersiveTourNarration;
+  pointId: string;
+  pointIndex: number;
+  progress: number;
+  segmentDuration: number;
 };
 
 export type HeadTrackingDebugState = {
@@ -258,10 +278,12 @@ const VR_PERFORMANCE_LOG_INTERVAL_MS = 1000;
 const VR_EYE_SEPARATION = 0.024;
 const IMMERSIVE_STEREO_TARGET_FRAME_MS = 1000 / 30;
 const IMMERSIVE_TEXTURE_MAX_ANISOTROPY = 2;
-const IMMERSIVE_TERRAIN_EXTRA_RADIUS = 0.58;
-const IMMERSIVE_TERRAIN_MIN_SIZE = 34;
-const IMMERSIVE_TERRAIN_REPEAT_METERS = 5.5;
-const IMMERSIVE_TERRAIN_Y_OFFSET = 0.035;
+const IMMERSIVE_TERRAIN_EXTRA_RADIUS = 2.4;
+const IMMERSIVE_TERRAIN_MAX_SIZE = 520;
+const IMMERSIVE_TERRAIN_MIN_SIZE = 180;
+const IMMERSIVE_TERRAIN_REPEAT_METERS = 7.5;
+const IMMERSIVE_TERRAIN_Y_LIFT_MIN = 0.04;
+const IMMERSIVE_TERRAIN_Y_LIFT_RATIO = 0.025;
 const deviceOrientationAxis = new THREE.Vector3(0, 0, 1);
 const deviceOrientationEuler = new THREE.Euler();
 const deviceOrientationScreenQuaternion = new THREE.Quaternion();
@@ -355,6 +377,7 @@ export function CabezaClavaModelView({
   modelAsset = DEFAULT_ARTWORK_MODEL.asset,
   modelLabel = DEFAULT_ARTWORK_MODEL.label,
   onHeadTrackingDebug,
+  onTourSegmentChange,
   recenterSignal = 0,
   showStatus = true,
   skyTextureAsset,
@@ -380,6 +403,9 @@ export function CabezaClavaModelView({
   const autoRotateRef = useRef(autoRotate);
   const guidedTourStartAtRef = useRef<number | null>(null);
   const hasUserInteractedRef = useRef(false);
+  const lastTourSegmentEmitAtRef = useRef(0);
+  const lastTourSegmentKeyRef = useRef<string | null>(null);
+  const onTourSegmentChangeRef = useRef(onTourSegmentChange);
   const tourPlaybackPausedRef = useRef(tourPlaybackPaused);
   const deviceOrientationRef = useRef<THREE.Quaternion | null>(null);
   const deviceOrientationReferenceRef = useRef<THREE.Quaternion | null>(null);
@@ -440,6 +466,10 @@ export function CabezaClavaModelView({
   useEffect(() => {
     tourPlaybackPausedRef.current = tourPlaybackPaused;
   }, [tourPlaybackPaused]);
+
+  useEffect(() => {
+    onTourSegmentChangeRef.current = onTourSegmentChange;
+  }, [onTourSegmentChange]);
 
   const emitDebugSnapshot = useCallback(
     (force = false) => {
@@ -556,6 +586,38 @@ export function CabezaClavaModelView({
     perfSlowFrameCountRef.current = 0;
   }, [isImmersive, usesStereo]);
 
+  const clearTourSegment = useCallback(() => {
+    if (!lastTourSegmentKeyRef.current) {
+      return;
+    }
+
+    lastTourSegmentKeyRef.current = null;
+    lastTourSegmentEmitAtRef.current = 0;
+    onTourSegmentChangeRef.current?.(null);
+  }, []);
+
+  const emitTourSegment = useCallback((tourFrame: ImmersiveTourFrame, now: number) => {
+    const segmentKey = `${tourFrame.pointIndex}:${tourFrame.pointId}`;
+    const shouldEmit =
+      lastTourSegmentKeyRef.current !== segmentKey ||
+      now - lastTourSegmentEmitAtRef.current > 180;
+
+    if (!shouldEmit) {
+      return;
+    }
+
+    lastTourSegmentKeyRef.current = segmentKey;
+    lastTourSegmentEmitAtRef.current = now;
+    onTourSegmentChangeRef.current?.({
+      elapsedSeconds: tourFrame.elapsedSeconds,
+      narration: tourFrame.narration,
+      pointId: tourFrame.pointId,
+      pointIndex: tourFrame.pointIndex,
+      progress: tourFrame.progress,
+      segmentDuration: tourFrame.segmentDuration,
+    });
+  }, []);
+
   useEffect(() => {
     if (!usesHeadTracking) {
       return;
@@ -569,6 +631,7 @@ export function CabezaClavaModelView({
     renderedPitchRef.current = 0;
     renderedRollRef.current = 0;
     trackedRotationReferenceRef.current = null;
+    clearTourSegment();
 
     if (deviceOrientationRef.current) {
       deviceOrientationReferenceRef.current = deviceOrientationRef.current.clone().invert();
@@ -581,7 +644,7 @@ export function CabezaClavaModelView({
     }
     gyroscopeLastTimestampRef.current = null;
     emitDebugSnapshot(true);
-  }, [emitDebugSnapshot, recenterSignal, usesHeadTracking]);
+  }, [clearTourSegment, emitDebugSnapshot, recenterSignal, usesHeadTracking]);
 
   useEffect(() => {
     let isMounted = true;
@@ -636,6 +699,7 @@ export function CabezaClavaModelView({
     trackedPitchRef.current = 0;
     trackedRollRef.current = 0;
     trackedRotationReferenceRef.current = null;
+    clearTourSegment();
     emitDebugSnapshot(true);
 
     if (!usesHeadTracking) {
@@ -1189,9 +1253,10 @@ export function CabezaClavaModelView({
       renderedRollRef.current = 0;
       trackedRollRef.current = 0;
       trackedRotationReferenceRef.current = null;
+      clearTourSegment();
       emitDebugSnapshot(true);
     };
-  }, [emitDebugSnapshot, usesAndroidHeadTracking, usesHeadTracking]);
+  }, [clearTourSegment, emitDebugSnapshot, usesAndroidHeadTracking, usesHeadTracking]);
 
   useEffect(() => {
     return () => {
@@ -1199,9 +1264,10 @@ export function CabezaClavaModelView({
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      clearTourSegment();
       cleanupRef.current?.();
     };
-  }, []);
+  }, [clearTourSegment]);
 
   const panResponder = useMemo(
     () =>
@@ -1290,7 +1356,7 @@ export function CabezaClavaModelView({
     let cameraFit: CameraFit | null = null;
     let immersiveRig: ImmersiveCameraRig | null = null;
     let skyDome: THREE.Mesh | null = null;
-    let terrainGround: THREE.Mesh | null = null;
+    let terrainGround: THREE.Object3D | null = null;
     let stereoCamera: THREE.StereoCamera | null = null;
 
     try {
@@ -1352,6 +1418,7 @@ export function CabezaClavaModelView({
         try {
           terrainGround = await createImmersiveTerrainGround(
             model,
+            immersiveRig,
             renderer.capabilities.getMaxAnisotropy(),
           );
           scene.add(terrainGround);
@@ -1401,6 +1468,7 @@ export function CabezaClavaModelView({
               if (usesGuidedTour) {
                 if (tourPlaybackPausedRef.current) {
                   guidedTourStartAtRef.current = null;
+                  clearTourSegment();
                 } else if (guidedTourStartAtRef.current === null) {
                   guidedTourStartAtRef.current = now;
                 }
@@ -1411,6 +1479,12 @@ export function CabezaClavaModelView({
                     ? 0
                     : (now - guidedTourStartAtRef.current) / 1000,
                 );
+
+                if (tourFrame) {
+                  emitTourSegment(tourFrame, now);
+                } else {
+                  clearTourSegment();
+                }
 
                 if (
                   tourFrame &&
@@ -1473,53 +1547,56 @@ export function CabezaClavaModelView({
                     renderedPitchRef.current,
                   );
                 }
-              } else if (
-                usesAndroidHeadTracking &&
-                headTrackingSourceRef.current === "gyroscope" &&
-                gyroscopeOrientationRef.current
-              ) {
-                applyTrackedImmersiveCameraPose(
-                  camera,
-                  immersiveRig,
-                  identityQuaternion,
-                  gyroscopeOrientationRef.current,
-                );
-              } else if (
-                usesHeadTracking &&
-                !usesAndroidHeadTracking &&
-                deviceOrientationRef.current &&
-                deviceOrientationReferenceRef.current
-              ) {
-                applyTrackedImmersiveCameraPose(
-                  camera,
-                  immersiveRig,
-                  deviceOrientationReferenceRef.current,
-                  deviceOrientationRef.current,
-                );
               } else {
-                const source = headTrackingSourceRef.current;
-                const targetYaw =
-                  source === "compass" || source === "device-motion"
-                    ? trackedYawRef.current
-                    : observerYawRef.current;
-                const targetPitch =
-                  source === "compass" || source === "device-motion"
-                    ? trackedPitchRef.current
-                    : observerPitchRef.current;
-                renderedYawRef.current = lerpAngle(
-                  renderedYawRef.current,
-                  targetYaw,
-                  IMMERSIVE_TRACKING_SMOOTHING,
-                );
-                renderedPitchRef.current +=
-                  (targetPitch - renderedPitchRef.current) *
-                  IMMERSIVE_TRACKING_SMOOTHING;
-                applyImmersiveCameraPose(
-                  camera,
-                  immersiveRig,
-                  renderedYawRef.current,
-                  renderedPitchRef.current,
-                );
+                clearTourSegment();
+                if (
+                  usesAndroidHeadTracking &&
+                  headTrackingSourceRef.current === "gyroscope" &&
+                  gyroscopeOrientationRef.current
+                ) {
+                  applyTrackedImmersiveCameraPose(
+                    camera,
+                    immersiveRig,
+                    identityQuaternion,
+                    gyroscopeOrientationRef.current,
+                  );
+                } else if (
+                  usesHeadTracking &&
+                  !usesAndroidHeadTracking &&
+                  deviceOrientationRef.current &&
+                  deviceOrientationReferenceRef.current
+                ) {
+                  applyTrackedImmersiveCameraPose(
+                    camera,
+                    immersiveRig,
+                    deviceOrientationReferenceRef.current,
+                    deviceOrientationRef.current,
+                  );
+                } else {
+                  const source = headTrackingSourceRef.current;
+                  const targetYaw =
+                    source === "compass" || source === "device-motion"
+                      ? trackedYawRef.current
+                      : observerYawRef.current;
+                  const targetPitch =
+                    source === "compass" || source === "device-motion"
+                      ? trackedPitchRef.current
+                      : observerPitchRef.current;
+                  renderedYawRef.current = lerpAngle(
+                    renderedYawRef.current,
+                    targetYaw,
+                    IMMERSIVE_TRACKING_SMOOTHING,
+                  );
+                  renderedPitchRef.current +=
+                    (targetPitch - renderedPitchRef.current) *
+                    IMMERSIVE_TRACKING_SMOOTHING;
+                  applyImmersiveCameraPose(
+                    camera,
+                    immersiveRig,
+                    renderedYawRef.current,
+                    renderedPitchRef.current,
+                  );
+                }
               }
             }
           } else {
@@ -1577,6 +1654,8 @@ export function CabezaClavaModelView({
       renderer?.dispose();
     }
   }, [
+    clearTourSegment,
+    emitTourSegment,
     emitPerformanceSnapshot,
     immersiveTour,
     immersiveSubject,
@@ -2299,18 +2378,12 @@ async function createSkyDome(assetModule: SkyTextureAsset, radius: number) {
 
 async function createImmersiveTerrainGround(
   model: THREE.Object3D,
+  rig: ImmersiveCameraRig,
   maxAnisotropy: number,
 ) {
   model.updateWorldMatrix(true, true);
   const box = new THREE.Box3().setFromObject(model);
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-  const horizontalSize = Math.max(size.x, size.z, 1);
-  const terrainSize = Math.max(
-    horizontalSize * (1 + IMMERSIVE_TERRAIN_EXTRA_RADIUS * 2),
-    IMMERSIVE_TERRAIN_MIN_SIZE,
-  );
-  const repeat = Math.max(4, Math.round(terrainSize / IMMERSIVE_TERRAIN_REPEAT_METERS));
+  const terrainFootprint = getImmersiveTerrainFootprint(box, rig);
   const [diffuseAsset, roughnessAsset, normalAsset] = await Promise.all([
     loadTerrainTextureAsset(immersiveTerrainTextures.diffuse),
     loadTerrainTextureAsset(immersiveTerrainTextures.roughness),
@@ -2318,17 +2391,26 @@ async function createImmersiveTerrainGround(
   ]);
   const map = createRuntimeTexture(diffuseAsset, {
     colorSpace: THREE.SRGBColorSpace,
-    repeat,
+    repeat: terrainFootprint.repeat,
   });
-  const roughnessMap = createRuntimeTexture(roughnessAsset, { repeat });
-  const normalMap = createRuntimeTexture(normalAsset, { repeat });
+  const roughnessMap = createRuntimeTexture(roughnessAsset, {
+    repeat: terrainFootprint.repeat,
+  });
+  const normalMap = createRuntimeTexture(normalAsset, {
+    repeat: terrainFootprint.repeat,
+  });
   const anisotropy = Math.max(1, Math.min(maxAnisotropy, IMMERSIVE_TEXTURE_MAX_ANISOTROPY));
 
   map.anisotropy = anisotropy;
   roughnessMap.anisotropy = anisotropy;
   normalMap.anisotropy = anisotropy;
 
-  const geometry = new THREE.PlaneGeometry(terrainSize, terrainSize, 1, 1);
+  const geometry = new THREE.PlaneGeometry(
+    terrainFootprint.size,
+    terrainFootprint.size,
+    2,
+    2,
+  );
   const material = new THREE.MeshStandardMaterial({
     color: 0xd7c8ae,
     map,
@@ -2342,11 +2424,65 @@ async function createImmersiveTerrainGround(
 
   const ground = new THREE.Mesh(geometry, material);
   ground.name = "MuseIQ_RockyTerrain";
-  ground.position.set(center.x, box.min.y - IMMERSIVE_TERRAIN_Y_OFFSET, center.z);
+  ground.position.set(
+    terrainFootprint.center.x,
+    terrainFootprint.groundY,
+    terrainFootprint.center.z,
+  );
   ground.rotation.x = -Math.PI / 2;
+  ground.frustumCulled = false;
   ground.renderOrder = -20;
 
   return ground;
+}
+
+function getImmersiveTerrainFootprint(
+  box: THREE.Box3,
+  rig: ImmersiveCameraRig,
+) {
+  const modelCenter = box.getCenter(new THREE.Vector3());
+  const modelSize = box.getSize(new THREE.Vector3());
+  const points = [
+    new THREE.Vector3(box.min.x, 0, box.min.z),
+    new THREE.Vector3(box.min.x, 0, box.max.z),
+    new THREE.Vector3(box.max.x, 0, box.min.z),
+    new THREE.Vector3(box.max.x, 0, box.max.z),
+    new THREE.Vector3(modelCenter.x, 0, modelCenter.z),
+    new THREE.Vector3(rig.origin.x, 0, rig.origin.z),
+    new THREE.Vector3(rig.target.x, 0, rig.target.z),
+    ...rig.tourPoints.flatMap((point) => [
+      new THREE.Vector3(point.position.x, 0, point.position.z),
+      new THREE.Vector3(point.target.x, 0, point.target.z),
+    ]),
+  ];
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minZ = Math.min(...points.map((point) => point.z));
+  const maxZ = Math.max(...points.map((point) => point.z));
+  const spanX = Math.max(maxX - minX, 1);
+  const spanZ = Math.max(maxZ - minZ, 1);
+  const baseSpan = Math.max(spanX, spanZ);
+  const routePadding = Math.max(
+    baseSpan * IMMERSIVE_TERRAIN_EXTRA_RADIUS,
+    rig.lookDistance * 4,
+    Math.min(rig.far * 0.22, 150),
+  );
+  const terrainSize = clamp(
+    baseSpan + routePadding * 2,
+    IMMERSIVE_TERRAIN_MIN_SIZE,
+    IMMERSIVE_TERRAIN_MAX_SIZE,
+  );
+  const lift = Math.max(
+    modelSize.y * IMMERSIVE_TERRAIN_Y_LIFT_RATIO,
+    IMMERSIVE_TERRAIN_Y_LIFT_MIN,
+  );
+
+  return {
+    center: new THREE.Vector3((minX + maxX) / 2, 0, (minZ + maxZ) / 2),
+    groundY: box.min.y + lift,
+    repeat: Math.max(12, Math.round(terrainSize / IMMERSIVE_TERRAIN_REPEAT_METERS)),
+    size: terrainSize,
+  };
 }
 
 function createBufferAttribute(
@@ -2606,8 +2742,10 @@ function createImmersiveTourPoints(
 ) {
   if (immersiveTour?.points.length) {
     return immersiveTour.points.map((point) => ({
-      duration: point.duration,
+      duration: Math.max(point.duration, estimateImmersiveNarrationDuration(point.narration)),
       fov: sanitizeTourFov(point.fov),
+      id: point.id,
+      narration: point.narration,
       position: immersiveTourVectorToThree(point.position, immersiveTour),
       target: immersiveTourVectorToThree(point.target, immersiveTour),
     }));
@@ -2629,31 +2767,37 @@ function createImmersiveTourPoints(
   return [
     {
       duration: 5,
+      id: "auto-01",
       position: position(0.02, highY, 0.34),
       target: target(0, 0.02, targetY + safeHeight * 0.07),
     },
     {
       duration: 7,
+      id: "auto-02",
       position: position(-0.22, midY, 0.16),
       target: target(-0.04, 0.01, targetY + safeHeight * 0.05),
     },
     {
       duration: 8,
+      id: "auto-03",
       position: position(-0.04, closeY, -0.02),
       target: target(0.08, -0.04, targetY + safeHeight * 0.08),
     },
     {
       duration: 7,
+      id: "auto-04",
       position: position(0.2, closeY, -0.18),
       target: target(0.05, -0.06, targetY + safeHeight * 0.05),
     },
     {
       duration: 7,
+      id: "auto-05",
       position: position(0.05, midY, -0.3),
       target: target(0, -0.08, targetY + safeHeight * 0.04),
     },
     {
       duration: 7,
+      id: "auto-06",
       position: position(0.02, highY, 0.34),
       target: target(0, 0.02, targetY + safeHeight * 0.07),
     },
@@ -2693,8 +2837,14 @@ function getImmersiveTourFrame(
           : current.fov ?? next.fov;
 
       return {
+        elapsedSeconds: rawProgress * segmentDuration,
         fov,
+        narration: current.narration,
+        pointId: current.id,
+        pointIndex: index,
         position: current.position.clone().lerp(next.position, progress),
+        progress: rawProgress,
+        segmentDuration,
         target: current.target.clone().lerp(next.target, progress),
       };
     }
@@ -2703,8 +2853,14 @@ function getImmersiveTourFrame(
   }
 
   return {
+    elapsedSeconds: 0,
     fov: points[0].fov,
+    narration: points[0].narration,
+    pointId: points[0].id,
+    pointIndex: 0,
     position: points[0].position.clone(),
+    progress: 0,
+    segmentDuration: points[0].duration,
     target: points[0].target.clone(),
   };
 }
