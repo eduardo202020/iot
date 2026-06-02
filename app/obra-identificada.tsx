@@ -59,7 +59,7 @@ export default function ObraIdentificadaScreen() {
 
   const openArLoading = () => {
     selectArtwork(artwork.id);
-    router.push({ pathname: "/cargando-ar", params: { artworkId: artwork.id } } as never);
+    router.push({ pathname: "/ar-viro-activo", params: { artworkId: artwork.id } } as never);
   };
 
   return (

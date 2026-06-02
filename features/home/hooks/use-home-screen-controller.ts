@@ -7,12 +7,14 @@ import {
 } from "@/lib/room-experiences";
 import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
 import { useMuseIQ } from "@/providers/museiq-provider";
+import { useIsFocused } from "@react-navigation/native";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
 type ActiveSheet = "explore" | "immersive" | "qr" | null;
 
 export function useHomeScreenController() {
+  const isFocused = useIsFocused();
   const {
     currentArtwork,
     currentRoom,
@@ -39,7 +41,7 @@ export function useHomeScreenController() {
     movementState,
     stepCount,
     stepCountStatus,
-  } = useHomeSensors();
+  } = useHomeSensors(debugModeEnabled && isFocused);
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [dismissedSuggestionId, setDismissedSuggestionId] = useState<string | null>(null);
   const [isSuggestionVisible, setIsSuggestionVisible] = useState(false);
@@ -163,6 +165,12 @@ export function useHomeScreenController() {
     } as never);
   };
 
+  const openArMvp = () => {
+    setActiveSheet(null);
+    setIsTorchOn(false);
+    router.push("/ar-qr" as never);
+  };
+
   const openManualCodeEntry = () => {
     setActiveSheet(null);
     setIsTorchOn(false);
@@ -235,6 +243,7 @@ export function useHomeScreenController() {
     openExploreSheet,
     openImmersivePrompt,
     openImmersiveExperience,
+    openArMvp,
     openManualCodeEntry,
     openQrScanner,
     setIsTorchOn,

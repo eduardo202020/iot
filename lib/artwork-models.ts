@@ -126,10 +126,16 @@ const artworkModelMap: Record<string, ArtworkModelDescriptor> = {
   },
 };
 
+export const ARTWORK_MODEL_IDS = Object.keys(artworkModelMap);
+
 export function getArtworkModelAssetForArtwork(artworkId?: string): ArtworkModelDescriptor {
   if (!artworkId) {
     return DEFAULT_ARTWORK_MODEL;
   }
 
   return artworkModelMap[artworkId] ?? DEFAULT_ARTWORK_MODEL;
+}
+
+export function hasArtworkModelAsset(artworkId?: string) {
+  return Boolean(artworkId && artworkModelMap[artworkId]);
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 
-export function useHomeSensors() {
+export function useHomeSensors(enabled = true) {
   const [accelerometerStatus, setAccelerometerStatus] = useState("cargando");
   const [compassStatus, setCompassStatus] = useState("cargando");
   const [stepCountStatus, setStepCountStatus] = useState("cargando");
@@ -12,9 +12,20 @@ export function useHomeSensors() {
   const fallbackStepCountRef = useRef(0);
   const nativeStepSeenRef = useRef(false);
   const lastEstimatedStepAtRef = useRef(0);
+  const lastHeadingRef = useRef<string | null>(null);
   const smoothedMagnitudeRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (!enabled) {
+      setAccelerometerStatus("pausado");
+      setCompassStatus("pausado");
+      setMovementState("--");
+      setHeadingState(null);
+      smoothedMagnitudeRef.current = null;
+      lastHeadingRef.current = null;
+      return;
+    }
+
     let isMounted = true;
     let accelerometerSubscription: { remove: () => void } | null = null;
     let magnetometerSubscription: { remove: () => void } | null = null;
@@ -64,8 +75,10 @@ export function useHomeSensors() {
               return;
             }
 
-            setMovementState(
-              smoothedDelta > 0.06 ? "en movimiento" : "quieto",
+            const nextMovementState =
+              smoothedDelta > 0.06 ? "en movimiento" : "quieto";
+            setMovementState((current) =>
+              current === nextMovementState ? current : nextMovementState,
             );
 
             const now = Date.now();
@@ -87,14 +100,16 @@ export function useHomeSensors() {
           return;
         }
 
-        Magnetometer.setUpdateInterval(250);
+        Magnetometer.setUpdateInterval(500);
         magnetometerSubscription = Magnetometer.addListener((reading) => {
           const rawHeading =
             Math.atan2(reading.y ?? 0, reading.x ?? 0) * (180 / Math.PI);
           const normalized = (rawHeading - 90 + 360) % 360;
+          const nextHeading = `${Math.round(normalized)}°`;
 
-          if (isMounted) {
-            setHeadingState(`${Math.round(normalized)}°`);
+          if (isMounted && lastHeadingRef.current !== nextHeading) {
+            lastHeadingRef.current = nextHeading;
+            setHeadingState(nextHeading);
           }
         });
       } catch {
@@ -121,9 +136,15 @@ export function useHomeSensors() {
       accelerometerSubscription?.remove();
       magnetometerSubscription?.remove();
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) {
+      setStepCountStatus("pausado");
+      setStepCount(null);
+      return;
+    }
+
     let isMounted = true;
     let pedometerSubscription: { remove: () => void } | null = null;
 
@@ -204,7 +225,7 @@ export function useHomeSensors() {
       isMounted = false;
       pedometerSubscription?.remove();
     };
-  }, []);
+  }, [enabled]);
 
   return {
     accelerometerStatus,

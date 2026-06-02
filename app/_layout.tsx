@@ -22,6 +22,8 @@ export default function RootLayout() {
             <Stack.Screen name="error-conexion" />
             <Stack.Screen name="cargando-ar" />
             <Stack.Screen name="cargando-inmersivo" />
+            <Stack.Screen name="ar-qr" />
+            <Stack.Screen name="ar-viro-activo" />
             <Stack.Screen name="ar-no-disponible" />
             <Stack.Screen name="ar-activo" />
             <Stack.Screen name="ar-chat-ia" />

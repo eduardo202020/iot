@@ -42,6 +42,10 @@ export function useMuseIQNavigation({
   };
 
   const selectArtwork = (artworkId: string) => {
+    if (artworkId === currentArtworkId) {
+      return;
+    }
+
     const artwork = findArtworkById(artworkId);
     if (!artwork) {
       return;

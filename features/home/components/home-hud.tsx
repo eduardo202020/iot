@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } fro
 
 type HomeTopHudProps = {
   isArtworkNarrationPlaying: boolean;
+  onOpenArMvp: () => void;
   onOpenImmersiveTest: () => void;
   onOpenDrawer: () => void;
   onRepeatArtworkNarration: () => void;
@@ -39,6 +40,7 @@ function HudActionButton({ icon, label, onPress, style }: HudActionButtonProps) 
 
 export function HomeTopHud({
   isArtworkNarrationPlaying,
+  onOpenArMvp,
   onOpenImmersiveTest,
   onOpenDrawer,
   onRepeatArtworkNarration,
@@ -85,6 +87,18 @@ export function HomeTopHud({
           ]}
         >
           <Ionicons color="#FFFFFF" name="glasses-outline" size={24} />
+        </Pressable>
+
+        <Pressable
+          onPress={onOpenArMvp}
+          style={({ pressed }) => [
+            styles.sideButton,
+            styles.arTestButton,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Ionicons color="#FFFFFF" name="cube-outline" size={23} />
+          <Text style={styles.compactSideButtonLabel}>AR</Text>
         </Pressable>
       </View>
     </View>
@@ -187,6 +201,9 @@ const styles = StyleSheet.create({
   immersiveTestButton: {
     gap: 0,
   },
+  arTestButton: {
+    gap: 3,
+  },
   sideButtonActive: {
     borderColor: musePalette.primary,
   },
@@ -194,6 +211,12 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 11,
     fontWeight: "600",
+  },
+  compactSideButtonLabel: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.7,
   },
   bottomHud: {
     paddingBottom: 12,

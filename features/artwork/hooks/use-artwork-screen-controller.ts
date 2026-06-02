@@ -46,7 +46,7 @@ export function useArtworkScreenController({
 
     selectArtwork(artwork.id);
     router.push({
-      pathname: "/cargando-ar",
+      pathname: "/ar-viro-activo",
       params: { artworkId: artwork.id },
     } as never);
   };

@@ -13,7 +13,8 @@
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "MuseIQ necesita Bluetooth para detectar beacons de salas cercanas.",
         "NSBluetoothPeripheralUsageDescription": "MuseIQ necesita Bluetooth para detectar beacons de salas cercanas.",
-        "NSLocationWhenInUseUsageDescription": "MuseIQ necesita tu ubicación para escanear dispositivos Bluetooth cercanos."
+        "NSLocationWhenInUseUsageDescription": "MuseIQ necesita tu ubicación para escanear dispositivos Bluetooth cercanos.",
+        "NSCameraUsageDescription": "MuseIQ necesita usar la camara para escanear codigos QR y activar experiencias AR."
       },
       "bundleIdentifier": "com.jguevaral.museiq"
     },
@@ -33,10 +34,12 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACTIVITY_RECOGNITION",
+        "CAMERA",
         "android.permission.HIGH_SAMPLING_RATE_SENSORS",
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
-        "android.permission.BLUETOOTH_CONNECT"
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -49,6 +52,29 @@
         "expo-dev-client",
         {
           "launchMode": "launcher"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "MuseIQ necesita usar la camara para escanear codigos QR y activar experiencias AR."
+        }
+      ],
+      [
+        "@reactvision/react-viro",
+        {
+          "provider": "none",
+          "android": {
+            "xRMode": [
+              "AR"
+            ]
+          },
+          "ios": {
+            "cameraUsagePermission": "MuseIQ necesita usar la camara para mostrar experiencias AR.",
+            "microphoneUsagePermission": "MuseIQ puede usar el microfono si grabas una experiencia AR.",
+            "photosPermission": "MuseIQ puede acceder a fotos si eliges contenido para una experiencia AR.",
+            "savePhotosPermission": "MuseIQ puede guardar capturas de experiencias AR si lo solicitas."
+          }
         }
       ],
       [

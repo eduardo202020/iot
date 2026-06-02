@@ -31,6 +31,7 @@ export default function HomeScreen() {
     isTorchOn,
     museumName,
     openArtworkDetail,
+    openArMvp,
     openExploreSheet,
     openImmersivePrompt,
     openImmersiveExperience,
@@ -79,6 +80,7 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safeArea}>
         <HomeTopHud
           isArtworkNarrationPlaying={isArtworkNarrationPlaying}
+          onOpenArMvp={openArMvp}
           onOpenImmersiveTest={openImmersivePrompt}
           onOpenDrawer={() => navigation.dispatch(DrawerActions.openDrawer())}
           onRepeatArtworkNarration={repeatArtworkNarration}
