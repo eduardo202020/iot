@@ -9,6 +9,7 @@ import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  type ImageSourcePropType,
   Pressable,
   StyleSheet,
   Text,
@@ -16,11 +17,33 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+const cabezaCardMarker = require("@/assets/images/ar-markers/cabeza.jpg");
+
 type ViroModule = typeof import("@reactvision/react-viro");
 type RuntimeState = "loading" | "ready" | "permission" | "unsupported" | "native-missing";
 type PlacementState = "detecting" | "placed";
 type ModelLoadState = "idle" | "loading" | "ready" | "error";
 type ArDiagnosticPayload = Record<string, unknown>;
+type Vector3 = [number, number, number];
+type ViroImageTargetSource = ImageSourcePropType | string;
+type ArImageMarkerConfig = {
+  asset: ViroImageTargetSource;
+  physicalWidthMeters: number;
+  targetName: string;
+};
+const CAMERA_PREVIEW_DISTANCE_METERS = 1.12;
+const MARKER_GATED_CAMERA_DISTANCE_METERS = 1.05;
+const MARKER_MODEL_LIFT_METERS = 0.012;
+const MARKER_MODEL_SCALE_MULTIPLIER = 0.08;
+
+const imageMarkerTargets: Record<string, ArImageMarkerConfig> = {
+  "obra-1-1-L": {
+    asset: cabezaCardMarker,
+    // Card visual de prueba mostrada en la PC con ancho fisico de 5 cm.
+    physicalWidthMeters: 0.05,
+    targetName: "museiq-obra-1-1-L-cabeza-card",
+  },
+};
 
 const trackingStateLabels: Record<string, string> = {
   "1": "tracking no disponible",
@@ -35,6 +58,7 @@ const trackingReasonLabels: Record<string, string> = {
 };
 
 type ArtworkArSceneProps = {
+  markerConfig?: ArImageMarkerConfig;
   modelAsset: number;
   modelBaseScale: [number, number, number];
   modelLabel: string;
@@ -82,10 +106,59 @@ function safeStringifyDiagnostic(payload: ArDiagnosticPayload) {
   }
 }
 
+function asVector3(value: unknown, fallback: Vector3): Vector3 {
+  if (!Array.isArray(value) || value.length < 3) {
+    return fallback;
+  }
+
+  return [
+    Number(value[0]) || 0,
+    Number(value[1]) || 0,
+    Number(value[2]) || 0,
+  ];
+}
+
+function formatVector3(value: Vector3): Vector3 {
+  return [
+    Number(value[0].toFixed(4)),
+    Number(value[1].toFixed(4)),
+    Number(value[2].toFixed(4)),
+  ];
+}
+
+function vectorLength(value: Vector3) {
+  return Math.sqrt(value[0] ** 2 + value[1] ** 2 + value[2] ** 2);
+}
+
+function distanceBetween(first: Vector3, second: Vector3) {
+  return vectorLength([
+    first[0] - second[0],
+    first[1] - second[1],
+    first[2] - second[2],
+  ]);
+}
+
+function summarizeMarkerAnchor(anchor: unknown) {
+  const anchorMap = (anchor ?? {}) as Record<string, unknown>;
+
+  return {
+    anchorId: typeof anchorMap.anchorId === "string" ? anchorMap.anchorId : null,
+    position: formatVector3(asVector3(anchorMap.position, [0, 0, 0])),
+    rotation: formatVector3(asVector3(anchorMap.rotation, [0, 0, 0])),
+    scale: formatVector3(asVector3(anchorMap.scale, [1, 1, 1])),
+    trackingMethod:
+      typeof anchorMap.trackingMethod === "string" ? anchorMap.trackingMethod : null,
+    type: typeof anchorMap.type === "string" ? anchorMap.type : null,
+  };
+}
+
 function createArtworkArScene(viro: ViroModule) {
   const {
     Viro3DObject,
+    ViroARCamera,
+    ViroARImageMarker,
     ViroARScene,
+    ViroARTrackingTargets,
     ViroAmbientLight,
     ViroDirectionalLight,
     ViroNode,
@@ -97,8 +170,61 @@ function createArtworkArScene(viro: ViroModule) {
     const appProps = sceneProps.sceneNavigator?.viroAppProps;
     const appPropsRef = useRef(appProps);
     const lastResetSignalRef = useRef<number | null>(null);
+    const lastCameraPositionRef = useRef<Vector3 | null>(null);
+    const lastTrackingStateRef = useRef<string>("1");
+    const registeredMarkerTargetRef = useRef("");
+    const hasCapturedMarkerRef = useRef(false);
+    const [isMarkerTargetReady, setIsMarkerTargetReady] = useState(false);
+    const [isArSessionReadyForMarkers, setIsArSessionReadyForMarkers] = useState(false);
+    const [hasCapturedMarker, setHasCapturedMarker] = useState(false);
     const resetSignal = appProps?.resetSignal;
     appPropsRef.current = appProps;
+    const markerTargetName = appProps?.markerConfig?.targetName;
+    const markerTargetAsset = appProps?.markerConfig?.asset;
+    const markerPhysicalWidthMeters = appProps?.markerConfig?.physicalWidthMeters;
+
+    useEffect(() => {
+      const currentAppProps = appPropsRef.current;
+      if (!currentAppProps?.markerConfig) {
+        setIsMarkerTargetReady(false);
+        setIsArSessionReadyForMarkers(false);
+        hasCapturedMarkerRef.current = false;
+        setHasCapturedMarker(false);
+        return;
+      }
+      if (!isArSessionReadyForMarkers) {
+        setIsMarkerTargetReady(false);
+        return;
+      }
+      if (registeredMarkerTargetRef.current === currentAppProps.markerConfig.targetName) {
+        setIsMarkerTargetReady(true);
+        return;
+      }
+
+      ViroARTrackingTargets.createTargets({
+        [currentAppProps.markerConfig.targetName]: {
+          orientation: "Up",
+          physicalWidth: currentAppProps.markerConfig.physicalWidthMeters,
+          source: currentAppProps.markerConfig.asset,
+          type: "Image",
+        },
+      });
+      registeredMarkerTargetRef.current = currentAppProps.markerConfig.targetName;
+      setIsMarkerTargetReady(true);
+      currentAppProps.onArDiagnostic("imageMarkerTargetRegistered", {
+        markerAssetType: typeof currentAppProps.markerConfig.asset,
+        markerPhysicalWidthMeters: currentAppProps.markerConfig.physicalWidthMeters,
+        markerSurface: "pc-screen",
+        mode: "card-image-marker",
+        targetName: currentAppProps.markerConfig.targetName,
+      });
+    }, [
+      isArSessionReadyForMarkers,
+      markerPhysicalWidthMeters,
+      markerTargetAsset,
+      markerTargetName,
+      ViroARTrackingTargets,
+    ]);
 
     useEffect(() => {
       const currentAppProps = appPropsRef.current;
@@ -110,8 +236,19 @@ function createArtworkArScene(viro: ViroModule) {
       }
 
       lastResetSignalRef.current = resetSignal;
-      currentAppProps.onPlacementStateChange("placed");
+      lastCameraPositionRef.current = null;
+      setIsArSessionReadyForMarkers(false);
+      hasCapturedMarkerRef.current = false;
+      setHasCapturedMarker(false);
+      currentAppProps.onPlacementStateChange(currentAppProps.markerConfig ? "detecting" : "placed");
       currentAppProps.onModelLoadStateChange("idle");
+      currentAppProps.onArDiagnostic("cameraLockedPreviewReset", {
+        distanceMeters: currentAppProps.markerConfig
+          ? MARKER_GATED_CAMERA_DISTANCE_METERS
+          : CAMERA_PREVIEW_DISTANCE_METERS,
+        mode: currentAppProps.markerConfig ? "card-image-marker" : "camera-locked-preview",
+        resetSignal,
+      });
     }, [resetSignal]);
 
     if (!appProps) {
@@ -119,30 +256,72 @@ function createArtworkArScene(viro: ViroModule) {
     }
 
     const modelScale = multiplyScale(appProps.modelBaseScale, appProps.modelScaleMultiplier);
+    const markerModelScale = multiplyScale(
+      appProps.modelBaseScale,
+      appProps.modelScaleMultiplier * MARKER_MODEL_SCALE_MULTIPLIER,
+    );
+    const sceneMode = appProps.markerConfig ? "card-image-marker" : "camera-locked-preview";
+    const shouldRenderMarker = Boolean(
+      appProps.markerConfig && isMarkerTargetReady && isArSessionReadyForMarkers && !hasCapturedMarker,
+    );
+    const shouldRenderMarkerGatedCameraModel = Boolean(appProps.markerConfig && hasCapturedMarker);
 
     return (
       <ViroARScene
-        anchorDetectionTypes={["PlanesHorizontal", "PlanesVertical"]}
         onAmbientLightUpdate={(ambientLightInfo) => {
           appProps.onArDiagnostic("ambientLight", ambientLightInfo as ArDiagnosticPayload);
         }}
         onCameraTransformUpdate={(cameraTransform) => {
+          const nextCameraTransform = {
+            forward: asVector3(cameraTransform.forward, [0, 0, -1]),
+            position: asVector3(cameraTransform.position, [0, 0, 0]),
+            rotation: asVector3(cameraTransform.rotation, [0, 0, 0]),
+            up: asVector3(cameraTransform.up, [0, 1, 0]),
+          };
+          const lastCameraPosition = lastCameraPositionRef.current;
+          const cameraDeltaMeters = lastCameraPosition
+            ? distanceBetween(lastCameraPosition, nextCameraTransform.position)
+            : 0;
+
+          lastCameraPositionRef.current = nextCameraTransform.position;
+
           appProps.onArDiagnostic("cameraTransform", {
-            forward: cameraTransform.forward,
-            position: cameraTransform.position,
-            rotation: cameraTransform.rotation,
-            up: cameraTransform.up,
+            deltaMeters: Number(cameraDeltaMeters.toFixed(4)),
+            forward: formatVector3(nextCameraTransform.forward),
+            mode: sceneMode,
+            position: formatVector3(nextCameraTransform.position),
+            rotation: formatVector3(nextCameraTransform.rotation),
+            trackingState: lastTrackingStateRef.current,
+            up: formatVector3(nextCameraTransform.up),
           });
         }}
         onPlatformUpdate={(platformInfo) => {
+          if (appProps.markerConfig && !isArSessionReadyForMarkers) {
+            setIsArSessionReadyForMarkers(true);
+            appProps.onArDiagnostic("arSessionReadyForMarkers", {
+              mode: sceneMode,
+              reason: "platform-update",
+            });
+          }
           appProps.onArDiagnostic("platform", platformInfo as ArDiagnosticPayload);
         }}
         onTrackingUpdated={(state, reason) => {
           const nextState = String(state);
           const nextReason = reason ? String(reason) : undefined;
+          const previousState = lastTrackingStateRef.current;
+          if (appProps.markerConfig && !isArSessionReadyForMarkers) {
+            setIsArSessionReadyForMarkers(true);
+            appProps.onArDiagnostic("arSessionReadyForMarkers", {
+              mode: sceneMode,
+              reason: "tracking-update",
+            });
+          }
+          lastTrackingStateRef.current = nextState;
           appProps.onTrackingStateChange(nextState, nextReason);
           appProps.onArDiagnostic("tracking", {
             label: formatTrackingLabel(nextState, nextReason),
+            mode: sceneMode,
+            previousState,
             reason: nextReason ?? null,
             state: nextState,
           });
@@ -151,48 +330,155 @@ function createArtworkArScene(viro: ViroModule) {
         <ViroAmbientLight color="#FFFFFF" intensity={720} />
         <ViroDirectionalLight color="#FFFFFF" direction={[0, -1, -0.35]} intensity={620} />
 
-        <ViroNode
-          dragType="FixedToWorld"
-          position={[0, appProps.modelYOffset - 0.15, -1.2]}
-          rotation={appProps.modelRotation}
-          scale={modelScale}
-        >
-          <Viro3DObject
-            onError={(event) => {
-              const errorMessage =
-                event.nativeEvent?.error instanceof Error
-                  ? event.nativeEvent.error.message
-                  : "No se pudo cargar el modelo GLB.";
-              appProps.onArDiagnostic("modelError", {
-                error: errorMessage,
-                label: appProps.modelLabel,
-                title: appProps.modelTitle,
+        {shouldRenderMarker && appProps.markerConfig ? (
+          <ViroARImageMarker
+            target={appProps.markerConfig.targetName}
+            onAnchorFound={(anchor) => {
+              hasCapturedMarkerRef.current = true;
+              setHasCapturedMarker(true);
+              appProps.onPlacementStateChange("placed");
+              appProps.onArDiagnostic("imageMarkerFound", {
+                ...summarizeMarkerAnchor(anchor),
+                cameraDistanceMeters: MARKER_GATED_CAMERA_DISTANCE_METERS,
+                captureStrategy: "camera-locked-after-first-detection",
+                modelScaleMode: "camera-preview-scale",
+                mode: "card-image-marker",
+                targetName: appProps.markerConfig?.targetName,
               });
-              appProps.onModelLoadStateChange("error", errorMessage);
             }}
-            onLoadEnd={(event) => {
-              const succeeded = event.nativeEvent?.success;
-              appProps.onArDiagnostic("modelLoadEnd", {
-                label: appProps.modelLabel,
-                success: succeeded ?? null,
-                title: appProps.modelTitle,
+            onAnchorRemoved={() => {
+              if (hasCapturedMarkerRef.current) {
+                appProps.onArDiagnostic("imageMarkerRemovedAfterCapture", {
+                  mode: "card-image-marker",
+                  targetName: appProps.markerConfig?.targetName,
+                });
+                return;
+              }
+
+              appProps.onPlacementStateChange("detecting");
+              appProps.onArDiagnostic("imageMarkerRemoved", {
+                mode: "card-image-marker",
+                targetName: appProps.markerConfig?.targetName,
               });
-              appProps.onModelLoadStateChange(
-                succeeded === false ? "error" : "ready",
-                succeeded === false ? "El modelo no termino de cargar." : undefined,
-              );
             }}
-            onLoadStart={() => {
-              appProps.onArDiagnostic("modelLoadStart", {
-                label: appProps.modelLabel,
-                title: appProps.modelTitle,
+            onAnchorUpdated={(anchor) => {
+              appProps.onArDiagnostic("imageMarkerUpdated", {
+                ...summarizeMarkerAnchor(anchor),
+                captureStrategy: "pending-first-detection",
+                mode: "card-image-marker",
+                targetName: appProps.markerConfig?.targetName,
               });
-              appProps.onModelLoadStateChange("loading");
             }}
-            source={appProps.modelAsset}
-            type="GLB"
+          >
+            <ViroNode
+              position={[0, MARKER_MODEL_LIFT_METERS, 0]}
+              rotation={appProps.modelRotation}
+              scale={markerModelScale}
+            />
+          </ViroARImageMarker>
+        ) : shouldRenderMarkerGatedCameraModel ? (
+          <ViroARCamera>
+            <ViroNode
+              position={[0, appProps.modelYOffset, -MARKER_GATED_CAMERA_DISTANCE_METERS]}
+              rotation={appProps.modelRotation}
+              scale={modelScale}
+            >
+              <Viro3DObject
+                onError={(event) => {
+                  const errorMessage =
+                    event.nativeEvent?.error instanceof Error
+                      ? event.nativeEvent.error.message
+                      : "No se pudo cargar el modelo GLB.";
+                  appProps.onArDiagnostic("modelError", {
+                    error: errorMessage,
+                    label: appProps.modelLabel,
+                    mode: "marker-gated-camera-preview",
+                    title: appProps.modelTitle,
+                  });
+                  appProps.onModelLoadStateChange("error", errorMessage);
+                }}
+                onLoadEnd={(event) => {
+                  const succeeded = event.nativeEvent?.success;
+                  appProps.onArDiagnostic("modelLoadEnd", {
+                    distanceMeters: MARKER_GATED_CAMERA_DISTANCE_METERS,
+                    label: appProps.modelLabel,
+                    mode: "marker-gated-camera-preview",
+                    success: succeeded ?? null,
+                    title: appProps.modelTitle,
+                  });
+                  appProps.onModelLoadStateChange(
+                    succeeded === false ? "error" : "ready",
+                    succeeded === false ? "El modelo no termino de cargar." : undefined,
+                  );
+                }}
+                onLoadStart={() => {
+                  appProps.onArDiagnostic("modelLoadStart", {
+                    distanceMeters: MARKER_GATED_CAMERA_DISTANCE_METERS,
+                    label: appProps.modelLabel,
+                    mode: "marker-gated-camera-preview",
+                    title: appProps.modelTitle,
+                  });
+                  appProps.onModelLoadStateChange("loading");
+                }}
+                source={appProps.modelAsset}
+                type="GLB"
+              />
+            </ViroNode>
+          </ViroARCamera>
+        ) : appProps.markerConfig ? (
+          <ViroNode
+            position={[0, 0, -1]}
+            scale={[0.001, 0.001, 0.001]}
           />
-        </ViroNode>
+        ) : (
+          <ViroARCamera>
+            <ViroNode
+              position={[0, appProps.modelYOffset, -CAMERA_PREVIEW_DISTANCE_METERS]}
+              rotation={appProps.modelRotation}
+              scale={modelScale}
+            >
+              <Viro3DObject
+                onError={(event) => {
+                  const errorMessage =
+                    event.nativeEvent?.error instanceof Error
+                      ? event.nativeEvent.error.message
+                      : "No se pudo cargar el modelo GLB.";
+                  appProps.onArDiagnostic("modelError", {
+                    error: errorMessage,
+                    label: appProps.modelLabel,
+                    title: appProps.modelTitle,
+                  });
+                  appProps.onModelLoadStateChange("error", errorMessage);
+                }}
+                onLoadEnd={(event) => {
+                  const succeeded = event.nativeEvent?.success;
+                  appProps.onArDiagnostic("modelLoadEnd", {
+                    distanceMeters: CAMERA_PREVIEW_DISTANCE_METERS,
+                    label: appProps.modelLabel,
+                    mode: "camera-locked-preview",
+                    success: succeeded ?? null,
+                    title: appProps.modelTitle,
+                  });
+                  appProps.onModelLoadStateChange(
+                    succeeded === false ? "error" : "ready",
+                    succeeded === false ? "El modelo no termino de cargar." : undefined,
+                  );
+                }}
+                onLoadStart={() => {
+                  appProps.onArDiagnostic("modelLoadStart", {
+                    distanceMeters: CAMERA_PREVIEW_DISTANCE_METERS,
+                    label: appProps.modelLabel,
+                    mode: "camera-locked-preview",
+                    title: appProps.modelTitle,
+                  });
+                  appProps.onModelLoadStateChange("loading");
+                }}
+                source={appProps.modelAsset}
+                type="GLB"
+              />
+            </ViroNode>
+          </ViroARCamera>
+        )}
       </ViroARScene>
     );
   };
@@ -221,6 +507,7 @@ export default function ArViroActivoScreen() {
     () => getArArtworkExperience(artwork?.id),
     [artwork?.id],
   );
+  const markerConfig = resolvedArtworkId ? imageMarkerTargets[resolvedArtworkId] : undefined;
   const arScene = useMemo(
     () => (viroRuntime ? createArtworkArScene(viroRuntime) : null),
     [viroRuntime],
@@ -248,7 +535,9 @@ export default function ArViroActivoScreen() {
     (event: string, payload: ArDiagnosticPayload = {}) => {
       const now = Date.now();
       const throttleMs =
-        event === "cameraTransform" || event === "ambientLight" || event === "tracking"
+        event === "cameraTransform"
+          ? 900
+          : event === "ambientLight" || event === "tracking" || event === "imageMarkerUpdated"
           ? 1200
           : 0;
       const lastAt = lastDiagnosticAtRef.current[event] ?? 0;
@@ -280,6 +569,7 @@ export default function ArViroActivoScreen() {
       modelScaleMultiplier: scaleMultiplier,
       modelTitle: artwork?.title ?? "Obra AR",
       modelYOffset: arExperience.modelYOffset,
+      markerConfig,
       onArDiagnostic: handleArDiagnostic,
       onModelLoadStateChange: handleModelLoadStateChange,
       onPlacementStateChange: handlePlacementStateChange,
@@ -297,6 +587,7 @@ export default function ArViroActivoScreen() {
       handleModelLoadStateChange,
       handlePlacementStateChange,
       handleTrackingStateChange,
+      markerConfig,
       resetSignal,
       rotationY,
       scaleMultiplier,
@@ -359,7 +650,7 @@ export default function ArViroActivoScreen() {
         setRuntimeState(support.isARSupported ? "ready" : "unsupported");
         setRuntimeMessage(
           support.isARSupported
-            ? "Apunta al piso o una mesa y toca el plano detectado."
+            ? "Apunta la camara a la card visual de 5 cm para anclar el modelo."
             : "Este dispositivo no reporta soporte ARCore/ARKit disponible.",
         );
       } catch (error) {
@@ -414,7 +705,13 @@ export default function ArViroActivoScreen() {
   const canRenderAr = Boolean(resolvedArtworkId && runtimeState === "ready" && viroRuntime && arScene);
   const ViroARSceneNavigator = viroRuntime?.ViroARSceneNavigator;
   const placementLabel =
-    placementState === "placed" ? "Modelo frente a camara" : "Preparando escena";
+    markerConfig
+      ? placementState === "placed"
+        ? "Modelo visible tras detectar card"
+        : "Busca la card visual"
+      : placementState === "placed"
+        ? "Modelo fijo frente a camara"
+        : "Buscando camara AR";
   const modelStatusLabel =
     modelLoadState === "ready"
       ? arExperience.label
@@ -452,6 +749,7 @@ export default function ArViroActivoScreen() {
             key={artwork.id}
             initialScene={initialScene}
             initialSceneKey={`${artwork.id}-${resetSignal}`}
+            numberOfTrackedImages={markerConfig ? 1 : undefined}
             provider="none"
             videoQuality="High"
             viroAppProps={viroAppProps}
