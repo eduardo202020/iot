@@ -114,11 +114,17 @@ export function useHomeScreenController() {
   };
 
   const handleViewSuggestedAr = () => {
-    if (suggestedArtwork?.id) {
-      selectArtwork(suggestedArtwork.id);
-      setDismissedSuggestionId(suggestedArtwork.id);
+    if (!suggestedArtwork?.id) {
+      return;
     }
+
+    selectArtwork(suggestedArtwork.id);
+    setDismissedSuggestionId(suggestedArtwork.id);
     setIsSuggestionVisible(false);
+    router.push({
+      pathname: "/ar-viro-activo",
+      params: { artworkId: suggestedArtwork.id },
+    } as never);
   };
 
   const handleExploreOtherSuggestions = () => {
@@ -133,7 +139,9 @@ export function useHomeScreenController() {
 
   const openQrScanner = () => {
     setIsSuggestionVisible(false);
-    setActiveSheet("qr");
+    setActiveSheet(null);
+    setIsTorchOn(false);
+    router.push("/ar-qr" as never);
   };
 
   const closeQrScanner = () => {

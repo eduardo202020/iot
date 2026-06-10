@@ -3,6 +3,7 @@ import {
   CabezaClavaModelView,
   getCabezaClavaModelAssetForArtwork,
 } from "@/components/museiq/cabeza-clava-model-view";
+import { getArArtworkExperience } from "@/lib/ar-artwork-experiences";
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { Image, type ImageProps } from "expo-image";
@@ -271,8 +272,15 @@ export function ArSideRail({
 type ArArtifactModelProps = {
   autoRotate?: boolean;
   artworkId?: string;
+  externalRotationY?: number;
+  externalZoom?: number;
   imageSource?: ArImageSource;
+  introRotationRadians?: number;
+  introRotationSpeed?: number;
   interactive?: boolean;
+  modelVariant?: "catalog" | "ar";
+  onModelStatusChange?: (status: "loading" | "ready" | "error") => void;
+  recenterSignal?: number;
   showStatus?: boolean;
   style?: StyleProp<ViewStyle>;
 };
@@ -280,19 +288,35 @@ type ArArtifactModelProps = {
 export function ArArtifactModel({
   autoRotate = true,
   artworkId,
+  externalRotationY,
+  externalZoom,
+  introRotationRadians,
+  introRotationSpeed,
   interactive = false,
+  modelVariant = "catalog",
+  onModelStatusChange,
+  recenterSignal = 0,
   showStatus = true,
   style,
 }: ArArtifactModelProps) {
-  const model = getCabezaClavaModelAssetForArtwork(artworkId);
+  const model =
+    modelVariant === "ar"
+      ? getArArtworkExperience(artworkId)
+      : getCabezaClavaModelAssetForArtwork(artworkId);
 
   return (
     <View style={[styles.modelWrap, style]}>
       <CabezaClavaModelView
         autoRotate={autoRotate}
+        externalRotationY={externalRotationY}
+        externalZoom={externalZoom}
+        introRotationRadians={introRotationRadians}
+        introRotationSpeed={introRotationSpeed}
         interactive={interactive}
         modelAsset={model.asset}
         modelLabel={model.label}
+        onModelStatusChange={onModelStatusChange}
+        recenterSignal={recenterSignal}
         showStatus={showStatus}
         style={styles.modelCanvas}
       />

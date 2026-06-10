@@ -28,13 +28,18 @@ import * as THREE from "three";
 
 type CabezaClavaModelViewProps = {
   autoRotate?: boolean;
+  externalRotationY?: number;
+  externalZoom?: number;
   headTracking?: boolean;
+  introRotationRadians?: number;
+  introRotationSpeed?: number;
   immersiveSubject?: ImmersiveSubject;
   immersiveTour?: ImmersiveTourDefinition;
   interactive?: boolean;
   modelAsset?: ModelAsset;
   modelLabel?: string;
   onHeadTrackingDebug?: (snapshot: HeadTrackingDebugState) => void;
+  onModelStatusChange?: (status: "loading" | "ready" | "error") => void;
   onTourSegmentChange?: (segment: ImmersiveTourSegmentState | null) => void;
   recenterSignal?: number;
   showStatus?: boolean;
@@ -370,13 +375,18 @@ function getPreparedModelTemplate(
 
 export function CabezaClavaModelView({
   autoRotate = true,
+  externalRotationY = 0,
+  externalZoom = 1,
   headTracking = false,
+  introRotationRadians = INTRO_ROTATION_RADIANS,
+  introRotationSpeed = INTRO_ROTATION_SPEED,
   immersiveSubject = "space",
   immersiveTour,
   interactive = false,
   modelAsset = DEFAULT_ARTWORK_MODEL.asset,
   modelLabel = DEFAULT_ARTWORK_MODEL.label,
   onHeadTrackingDebug,
+  onModelStatusChange,
   onTourSegmentChange,
   recenterSignal = 0,
   showStatus = true,
@@ -393,6 +403,8 @@ export function CabezaClavaModelView({
   const isMountedRef = useRef(true);
   const objectRotationYRef = useRef(0);
   const objectRotationXRef = useRef(0);
+  const externalRotationYRef = useRef(externalRotationY);
+  const externalZoomRef = useRef(externalZoom);
   const observerYawRef = useRef(0);
   const observerPitchRef = useRef(0);
   const lastGestureDxRef = useRef(0);
@@ -401,6 +413,8 @@ export function CabezaClavaModelView({
   const initialPinchDistanceRef = useRef<number | null>(null);
   const initialPinchZoomRef = useRef(1);
   const autoRotateRef = useRef(autoRotate);
+  const introRotationRadiansRef = useRef(introRotationRadians);
+  const introRotationSpeedRef = useRef(introRotationSpeed);
   const guidedTourStartAtRef = useRef<number | null>(null);
   const hasUserInteractedRef = useRef(false);
   const lastTourSegmentEmitAtRef = useRef(0);
@@ -462,6 +476,26 @@ export function CabezaClavaModelView({
   useEffect(() => {
     autoRotateRef.current = autoRotate;
   }, [autoRotate]);
+
+  useEffect(() => {
+    introRotationRadiansRef.current = Math.max(0, introRotationRadians);
+  }, [introRotationRadians]);
+
+  useEffect(() => {
+    introRotationSpeedRef.current = Math.max(0, introRotationSpeed);
+  }, [introRotationSpeed]);
+
+  useEffect(() => {
+    onModelStatusChange?.(status);
+  }, [onModelStatusChange, status]);
+
+  useEffect(() => {
+    externalRotationYRef.current = externalRotationY;
+  }, [externalRotationY]);
+
+  useEffect(() => {
+    externalZoomRef.current = externalZoom;
+  }, [externalZoom]);
 
   useEffect(() => {
     tourPlaybackPausedRef.current = tourPlaybackPaused;
@@ -626,6 +660,12 @@ export function CabezaClavaModelView({
     trackedYawRef.current = 0;
     trackedPitchRef.current = 0;
     trackedRollRef.current = 0;
+    objectRotationYRef.current = 0;
+    objectRotationXRef.current = 0;
+    modelZoomRef.current = 1;
+    initialPinchDistanceRef.current = null;
+    initialPinchZoomRef.current = 1;
+    hasUserInteractedRef.current = false;
     guidedTourStartAtRef.current = null;
     renderedYawRef.current = 0;
     renderedPitchRef.current = 0;
@@ -1600,20 +1640,21 @@ export function CabezaClavaModelView({
               }
             }
           } else {
+            const introRotationLimit = introRotationRadiansRef.current;
             if (
               autoRotateRef.current &&
               !hasUserInteractedRef.current &&
-              spin < INTRO_ROTATION_RADIANS
+              spin < introRotationLimit
             ) {
-              spin = Math.min(INTRO_ROTATION_RADIANS, spin + INTRO_ROTATION_SPEED);
+              spin = Math.min(introRotationLimit, spin + introRotationSpeedRef.current);
             }
 
             model.rotation.x = objectRotationXRef.current;
-            model.rotation.y = spin + objectRotationYRef.current;
+            model.rotation.y = spin + objectRotationYRef.current + externalRotationYRef.current;
           }
 
           if (cameraFit) {
-            applyCameraZoom(camera, cameraFit, modelZoomRef.current);
+            applyCameraZoom(camera, cameraFit, modelZoomRef.current * externalZoomRef.current);
           }
         }
         if (renderer) {

@@ -23,6 +23,18 @@ function uniformScale(value: number): [number, number, number] {
 }
 
 const arModelAssetOverrides: Record<string, ArtworkModelDescriptor> = {
+  "aribalo.glb": {
+    asset: botellaEscultoricaArGlb,
+    label: "botella_escultorica_ar.glb",
+  },
+  "aro_mochica.glb": {
+    asset: esculturaTalladaArGlb,
+    label: "escultura_tallada_ar.glb",
+  },
+  "asiento_del_inca.glb": {
+    asset: batanArGlb,
+    label: "batan_ar.glb",
+  },
   "baston_mochica.glb": {
     asset: bastonMochicaArGlb,
     label: "baston_mochica_ar.glb",
@@ -31,7 +43,23 @@ const arModelAssetOverrides: Record<string, ArtworkModelDescriptor> = {
     asset: batanArGlb,
     label: "batan_ar.glb",
   },
+  "botella_de_ceramica_de_estilo_lambayeque.glb": {
+    asset: botellaEscultoricaArGlb,
+    label: "botella_escultorica_ar.glb",
+  },
+  "botella_de_ceramica_del_estilo_chimu.glb": {
+    asset: botellaEscultoricaArGlb,
+    label: "botella_escultorica_ar.glb",
+  },
   "botella_escultorica.glb": {
+    asset: botellaEscultoricaArGlb,
+    label: "botella_escultorica_ar.glb",
+  },
+  "buho-artesania.glb": {
+    asset: botellaEscultoricaArGlb,
+    label: "botella_escultorica_ar.glb",
+  },
+  "ceramica_ornitomorfa_moche.glb": {
     asset: botellaEscultoricaArGlb,
     label: "botella_escultorica_ar.glb",
   },
@@ -43,6 +71,26 @@ const arModelAssetOverrides: Record<string, ArtworkModelDescriptor> = {
     asset: esculturaTalladaArGlb,
     label: "escultura_tallada_ar.glb",
   },
+  "estatua_gigante_de_inca.glb": {
+    asset: esculturaTalladaArGlb,
+    label: "escultura_tallada_ar.glb",
+  },
+  "gate_of_the_sun_tiwanaku.glb": {
+    asset: recipienteChavinArGlb,
+    label: "recipiente_chavin_ar.glb",
+  },
+  "huaco_retrato_mochica.glb": {
+    asset: esculturaTalladaArGlb,
+    label: "escultura_tallada_ar.glb",
+  },
+  "inca_photogrammetry.glb": {
+    asset: batanArGlb,
+    label: "batan_ar.glb",
+  },
+  "portada.glb": {
+    asset: recipienteChavinArGlb,
+    label: "recipiente_chavin_ar.glb",
+  },
   "recipiente_chavin.glb": {
     asset: recipienteChavinArGlb,
     label: "recipiente_chavin_ar.glb",
@@ -50,6 +98,14 @@ const arModelAssetOverrides: Record<string, ArtworkModelDescriptor> = {
   "replica_del_obelisco_tello.glb": {
     asset: replicaObeliscoTelloArGlb,
     label: "replica_del_obelisco_tello_ar.glb",
+  },
+  "s20-v112a.glb": {
+    asset: recipienteChavinArGlb,
+    label: "recipiente_chavin_ar.glb",
+  },
+  "stirrup_vessel_in_form_of_a_bird.glb": {
+    asset: botellaEscultoricaArGlb,
+    label: "botella_escultorica_ar.glb",
   },
 };
 
