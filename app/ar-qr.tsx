@@ -37,9 +37,11 @@ export default function ArQrScreen() {
     selectArtwork,
   } = useMuseIQ();
   const cameraRuntimeRef = useRef<CameraRuntime | null>(null);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanLockRef = useRef(false);
   const [scannerState, setScannerState] = useState<ScannerState>("loading");
   const [isTorchOn, setIsTorchOn] = useState(false);
+  const [isOpeningAr, setIsOpeningAr] = useState(false);
   const [invalidQrMessage, setInvalidQrMessage] = useState("");
   const [CameraView, setCameraView] = useState<ComponentType<any> | null>(null);
 
@@ -55,11 +57,31 @@ export default function ArQrScreen() {
 
   const openArtworkInAr = useCallback(
     (artworkId: string) => {
+      console.log("[MuseIQ][AR_QR]", JSON.stringify({
+        artworkId,
+        event: "safeOpenArStart",
+      }));
       selectArtwork(artworkId);
-      router.replace({
-        pathname: "/ar-viro-activo",
-        params: { artworkId },
-      } as never);
+      setIsOpeningAr(true);
+      setIsTorchOn(false);
+      setInvalidQrMessage("");
+      setScannerState("loading");
+
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
+
+      // Give expo-camera one frame to unmount before the AR screen mounts its own camera + GLView.
+      navigationTimeoutRef.current = setTimeout(() => {
+        console.log("[MuseIQ][AR_QR]", JSON.stringify({
+          artworkId,
+          event: "safeOpenArNavigate",
+        }));
+        router.replace({
+          pathname: "/ar-viro-activo",
+          params: { artworkId },
+        } as never);
+      }, 180);
     },
     [selectArtwork],
   );
@@ -115,6 +137,9 @@ export default function ArQrScreen() {
 
     return () => {
       isMounted = false;
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -143,7 +168,7 @@ export default function ArQrScreen() {
 
   const museumName = museumProfile?.name ?? "MuseIQ";
   const roomName = currentRoom?.name ?? "Sala de prueba";
-  const showCamera = scannerState === "ready" && CameraView;
+  const showCamera = !isOpeningAr && scannerState === "ready" && CameraView;
 
   return (
     <View style={styles.screen}>
@@ -162,6 +187,9 @@ export default function ArQrScreen() {
         <View style={styles.loadingBackdrop}>
           {scannerState === "loading" ? (
             <ActivityIndicator color={arColors.primary} size="large" />
+          ) : null}
+          {isOpeningAr ? (
+            <Text style={styles.loadingText}>Abriendo AR...</Text>
           ) : null}
         </View>
       )}
@@ -203,7 +231,7 @@ export default function ArQrScreen() {
           </View>
         ) : null}
 
-        {scannerState !== "ready" ? (
+        {scannerState !== "ready" && !isOpeningAr ? (
           <View style={styles.permissionCard}>
             <Ionicons
               color={arColors.primary}
@@ -285,7 +313,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     backgroundColor: "#05080D",
+    gap: 12,
     justifyContent: "center",
+  },
+  loadingText: {
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 14,
+    fontWeight: "800",
   },
   cameraShade: {
     ...StyleSheet.absoluteFillObject,
