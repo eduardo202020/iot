@@ -1,6 +1,6 @@
 # Roadmap MuseIQ AR-first
 
-Actualizado: 2026-05-31
+Actualizado: 2026-06-10
 
 Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real presente en `app/`. Si las referencias de `pantallas/` no están disponibles en el repo local, usa este archivo y `README.md` como fuente de verdad operativa. El objetivo es convertir MuseIQ en una guía inmersiva, sobria y museográfica, sin perder las funciones ya existentes de BLE, MuseRAG, voz, imágenes y modo técnico.
 
@@ -8,14 +8,14 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 
 - La experiencia principal es Home AR, no un set de tabs.
 - BLE detecta sala/zona; no debe afirmar obra exacta sin QR o selección explícita.
-- QR identifica una obra exacta.
+- QR identifica una obra exacta y puede abrir directamente el MVP AR estable.
 - Info y fuentes no son acciones permanentes del Home ni tabs persistentes del detalle.
 - En AR activo, `Audio` puede vivir como acción lateral superior; `Preguntar IA` queda como CTA inferior principal.
 - Preguntar debe sentirse como un modal contextual que emerge sobre la experiencia.
-- Escanear QR dentro de AR debe sentirse como sheet contextual, no como salida a otra pantalla.
+- Escanear QR en Home usa cámara real; dentro del AR legado puede seguir funcionando como sheet contextual.
 - Algunas salas pueden declarar una capability de `modo inmersivo`, ofrecer `Entrar / Saltar` y cargar un modelo 3D del espacio.
 - El modo inmersivo debe permitir elegir entre varias experiencias de una sala, reproducir un tour caminable y dejar que el headset controle la mirada.
-- La narracion del modo inmersivo debe acompañar el recorrido segun el tramo actual, no sonar como audio aislado.
+- La narracion del modo inmersivo acompaña el recorrido por tramo en versión local; el siguiente paso es llevarla a contrato remoto/MuseRAG.
 - La interfaz usa azul MuseIQ como color primario, con botones de borde en el HUD.
 - El modo técnico queda separado del visitante común.
 
@@ -25,11 +25,12 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 2. `seleccionar-museo`: selección de museo actual y futuros museos.
 3. `preparacion-visita`: permisos, conectividad y estado base.
 4. `/(drawer)/home`: HUD principal con BLE, explorar, preguntar y QR.
-5. `obra-identificada` y `artwork-detail`: confirmación y ficha de obra.
+5. `ar-qr`, `obra-identificada` y `artwork-detail`: identificación por QR real, confirmación/fallback y ficha de obra.
 6. `pregunta-voz-modal`: consulta contextual por voz o texto.
-7. `cargando-ar`, `ar-activo`, `ar-hotspot-seleccionado`: recorrido AR temporal.
-8. `ar-no-disponible` y `visor-3d`: degradación cuando AR no está disponible.
-9. `cargando-inmersivo`, `sala-inmersiva`: experiencia 3D de sala cuando la capability inmersiva esta disponible.
+7. `ar-viro-activo`: MVP AR estable con cámara de fondo y GLB interactivo.
+8. `cargando-ar`, `ar-activo`, `ar-hotspot-seleccionado`: recorrido AR contextual legado.
+9. `ar-no-disponible` y `visor-3d`: degradación cuando AR no está disponible.
+10. `cargando-inmersivo`, `sala-inmersiva`: experiencia 3D de sala cuando la capability inmersiva esta disponible.
 
 ## Cobertura por `flujo.png`
 
@@ -45,11 +46,11 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 ### Identificación y ficha de obra
 
 - [x] `7 Explorar sala` / `03-01.png`: bottom sheet de obras de la sala.
-- [x] `8 Escanear QR` / `03-02.png`: overlay visual de QR en Home y sheet contextual en `ar-activo`.
-- [ ] QR real con cámara y parsing de códigos de obra.
+- [x] `8 Escanear QR` / `03-02.png`: QR real con cámara en Home (`app/ar-qr.tsx`) y sheet contextual legado en `ar-activo`.
+- [x] Parsing local de códigos de obra y handoff seguro QR -> AR MVP.
 - [x] `X Resultado de QR inválido`: error de QR, causas y reintento (`app/qr-invalido.tsx`).
 - [x] Entrada manual de código QR (`app/codigo-manual.tsx`).
-- [x] `9 Obra identificada` / `03-03.png`: resultado tras QR simulado (`app/obra-identificada.tsx`).
+- [x] `9 Obra identificada` / `03-03.png`: confirmación/fallback tras QR o entrada manual (`app/obra-identificada.tsx`).
 - [x] `9 Obra identificada`: layout simplificado con back superior, `Audio` superior derecho y CTA unico `Ver en AR`.
 - [x] `A Detalles de la obra` / `05-02.png`: ficha base (`app/artwork-detail.tsx`).
 - [x] `B Imágenes relacionadas` / `05-03.png`: galería (`app/artwork-images.tsx`).
@@ -59,7 +60,8 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 ### AR, chat y audio
 
 - [x] `R Cargando AR` / `08-03.png`: carga visual de modelo (`app/cargando-ar.tsx`).
-- [x] `10 AR activo (obra 3D)`: escena AR temporal con modelo 3D (`app/ar-activo.tsx`).
+- [x] `10 AR activo (obra 3D)`: MVP estable con cámara de fondo y GLB interactivo (`app/ar-viro-activo.tsx`).
+- [x] Escena AR temporal/legada con modelo 3D (`app/ar-activo.tsx`).
 - [x] `11 Hotspot seleccionado`: detalle de hotspot (`app/ar-hotspot-seleccionado.tsx`).
 - [x] `12 Chat IA (bottom sheet/modal)`: flujo de preguntar como modal inferior (`app/pregunta-voz-modal.tsx`).
 - [x] `9 Audio activo`: sheet contextual dentro de `ar-activo`; `app/ar-audio-activo.tsx` queda como pantalla legada de apoyo.
@@ -67,10 +69,11 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] `Z Sala inmersiva 3D`: carga y render de experiencias GLB locales en `app/sala-inmersiva.tsx`.
 - [x] Lista de experiencias inmersivas por sala, generada desde Muse3D.
 - [x] Vista SBS/Cardboard con countdown de headset y tracking de cabeza.
-- [x] Terreno rocoso base para reducir la sensacion de isla flotante.
+- [x] Terreno rocoso extendido sobre el footprint del modelo y del tour.
+- [x] Narracion local por tramo y subtitulos SBS durante el tour inmersivo.
 - [x] `V AR no disponible`: fallback a visor 3D (`app/ar-no-disponible.tsx`).
 - [x] `U Visor 3D sin AR`: visor 3D (`app/visor-3d.tsx`).
-- [ ] AR real con ARCore/ARKit o librería equivalente.
+- [ ] AR espacial real con anclaje por plano, marcador visual o QR usando ARCore/ARKit o librería equivalente.
 - [ ] `W Modelo 3D no disponible`: pantalla dedicada, no solo mensaje interno del visor.
 
 ### Drawer y pantallas auxiliares
@@ -115,7 +118,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] Sala detectada.
 - [x] Sugerencia BLE futura.
 - [x] Explorar sala.
-- [x] Escaneo QR simulado.
+- [x] Escaneo QR real desde Home y overlay/sheet simulado como soporte legado.
 - [x] Obra identificada después de QR (`obra-identificada.tsx`, `artwork-detail.tsx`).
 - [x] HUD superior simplificado con nombre de sala entre menu y audio (`home.tsx`).
 - [x] Carga de AR (`cargando-ar.tsx`).
@@ -124,6 +127,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] Chat IA como modal inferior con voz prioritaria (`pregunta-voz-modal.tsx`).
 - [x] Audio activo con control básico como sheet en `ar-activo`.
 - [x] QR contextual en `ar-activo` como sheet para cambiar de obra.
+- [x] AR MVP con cámara de fondo y GLB interactivo (`ar-viro-activo.tsx`).
 - [x] Capability inmersiva por sala, con entrada manual en desarrollo sobre `SALA_1`.
 - [x] Estados de QR invalido, error de conexión y sin conexión (`X`, `S`, `P`) como pantallas de flujo.
 - [ ] Estado de actualización (`T`) integrado al flujo.
@@ -136,17 +140,24 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] Contrato local de sala inmersiva con modelo y tour (`lib/room-experiences.ts`, `lib/immersive-tours.ts`).
 - [x] Manifiesto generado de experiencias inmersivas (`lib/immersive-experiences.generated.ts`).
 - [ ] Definir contrato remoto de sala inmersiva: `immersive_mode`, `room_model_3d`, `room_tour`, `room_hotspots`.
-- [ ] Definir contrato de narracion por tramo para tours inmersivos.
+- [ ] Definir contrato remoto de narracion por tramo para tours inmersivos.
 - [ ] Estado dedicado `W Modelo 3D no disponible`.
 - [x] Visor 3D sin AR base (`visor-3d.tsx`).
 - [x] Fallback base si ARCore/ARKit no está disponible (`ar-no-disponible.tsx`).
 
-### Fase 5. AR real
+### Fase 5. AR MVP y AR espacial
 
-- [ ] Evaluar e integrar ReactVision/ViroReact o alternativa compatible.
-- [ ] Renderizar modelo 3D sobre la escena.
-- [ ] Hotspots tocables.
-- [ ] Pruebas en dispositivo físico.
+- [x] Scanner QR real con `expo-camera`.
+- [x] Render de GLB sobre cámara como MVP robusto.
+- [x] Interacción manual con GLB: zoom, arrastre, rotación y giro inicial de dos vueltas.
+- [x] Loading visual y gesto de pinch tras cargar el modelo.
+- [x] Mapeo AR seguro por obra con GLB optimizados/fallbacks.
+- [x] Handoff seguro desde scanner QR a visor AR para evitar choque de vistas nativas.
+- [ ] QA completo con todos los QR físicos impresos.
+- [ ] Reemplazar fallbacks AR por GLB optimizados específicos para cada obra.
+- [ ] Evaluar AR espacial real con ReactVision/ViroReact, ARCore o alternativa compatible.
+- [ ] Anclaje estable por plano, marcador visual o QR si aporta valor museográfico.
+- [ ] Hotspots tocables en AR espacial.
 - [ ] Optimización de peso, carga y degradación offline.
 
 ### Fase 6. Modo inmersivo / Cardboard
@@ -158,22 +169,24 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] Lista local de experiencias inmersivas para no reemplazar manualmente un GLB por otro.
 - [x] Vista estereoscopica SBS con temporizador de 5 segundos para ponerse el headset.
 - [x] Ajuste de sensibilidad de mirada para mayor rango arriba/abajo e izquierda/derecha.
-- [x] Cielo de entorno y terreno rocoso base durante el render inmersivo.
-- [ ] Completar la superficie terrestre a todo el suelo visible para eliminar la sensacion de isla.
-- [ ] Narracion sincronizada con el avance del tour.
+- [x] Cielo de entorno y terreno rocoso extendido durante el render inmersivo.
+- [x] Narracion local estatica por tramo con subtitulos sincronizados SBS.
+- [ ] Pulir materiales, escala y acabado del terreno por experiencia.
+- [ ] Narracion remota/dinamica con contrato MuseRAG o backend curatorial.
 - [ ] Multiplicar la capability inmersiva a mas salas.
 - [ ] Definir hotspots espaciales y narrativa sincronizada para edificaciones 3D.
 
 ## Próximos pasos recomendados
 
-1. Completar la superficie terrestre del modo inmersivo para cubrir todo el suelo visible y evitar que los modelos parezcan islas.
-2. Añadir narracion sincronizada con el tour: cada tramo debe activar su texto/audio conforme avanza el visitante.
-3. Integrar estado `T`: actualización disponible.
-4. Implementar pantalla dedicada `W Modelo 3D no disponible`.
-5. Implementar QR real: cámara, parsing y mapping a obra usando las pantallas ya creadas de resultado inválido y entrada manual.
-6. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
-7. Definir contrato remoto de capability inmersiva por sala y sustituir el mapping local de `SALA_1`.
-8. Integrar AR real con ARCore/ARKit o alternativa compatible y probar en dispositivo físico.
+1. Probar el flujo QR físico -> AR MVP con todos los códigos impresos y registrar qué obras usan fallback de modelo.
+2. Reemplazar los fallbacks AR por GLB optimizados propios de cada obra para que el MVP no dependa de modelos compartidos.
+3. Pulir materiales, escala y acabado del terreno inmersivo para que cada experiencia se sienta integrada al entorno.
+4. Evolucionar la narracion inmersiva: mantener guion local robusto, pero definir contrato remoto por tramo con MuseRAG/backend.
+5. Integrar estado `T`: actualización disponible.
+6. Implementar pantalla dedicada `W Modelo 3D no disponible`.
+7. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
+8. Definir contrato remoto de capability inmersiva por sala y sustituir el mapping local de `SALA_1`.
+9. Decidir si el siguiente AR debe usar anclaje por plano, marcador visual o QR; solo entonces retomar ARCore/ARKit/ReactVision.
 
 ## Validación esperada
 

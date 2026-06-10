@@ -26,7 +26,9 @@ Para pruebas rápidas, el scanner acepta fallback por nombre BLE:
 - `expo-speech`
 - `expo-speech-recognition`
 - `expo-sensors`
+- `expo-camera`
 - `expo-sqlite`
+- `expo-gl` / Three.js para render 3D local
 - `expo-dev-client`
 - MuseRAG como servicio de preguntas y respuestas
 
@@ -40,6 +42,11 @@ Para pruebas rápidas, el scanner acepta fallback por nombre BLE:
 - [providers/museiq-provider.tsx](providers/museiq-provider.tsx): composición del estado compartido
 - [providers/museiq/](providers/museiq): módulos internos del provider
 - [features/](features): implementación por dominio
+- [app/ar-qr.tsx](app/ar-qr.tsx): scanner QR real con `expo-camera`
+- [app/ar-viro-activo.tsx](app/ar-viro-activo.tsx): AR MVP con cámara de fondo y GLB interactivo
+- [lib/ar-artwork-experiences.ts](lib/ar-artwork-experiences.ts): resolución de modelos AR optimizados/fallback por obra
+- [lib/immersive-experiences.generated.ts](lib/immersive-experiences.generated.ts): experiencias inmersivas generadas desde Muse3D
+- [lib/immersive-tours.ts](lib/immersive-tours.ts): tours, duraciones y narración local por tramo
 
 ## Arquitectura modular
 
@@ -63,14 +70,19 @@ Referencia rápida: [ARCHITECTURE.md](ARCHITECTURE.md)
 5. La respuesta vuelve con texto, metadatos y, cuando hay fuentes, imágenes asociadas.
 6. El usuario puede escuchar la respuesta y seguir el texto mientras se reproduce.
 
-En el flujo AR actual:
+En el flujo AR/3D actual:
 
-- `cargando-ar` muestra solo la carga circular principal y acciones inferiores.
-- `ar-activo` mantiene al modelo 3D a pantalla completa.
+- `ar-qr` usa cámara real para leer códigos QR de obra y abre `ar-viro-activo`.
+- `ar-viro-activo` es el MVP estable de AR: cámara de fondo + GLB interactivo en overlay.
+- `ar-viro-activo` usa modelos AR optimizados o fallbacks desde `lib/ar-artwork-experiences.ts` para evitar crashes con GLB pesados.
+- La transición QR -> AR desmonta primero el scanner de cámara y luego monta el visor con cámara + GLView.
+- `cargando-ar` y `ar-activo` permanecen como flujo contextual/legado de AR temporal.
+- `ar-activo` mantiene al modelo 3D a pantalla completa en el flujo legado.
 - `Preguntar IA` abre `pregunta-voz-modal`.
 - `Audio` abre un bottom sheet local dentro de `ar-activo`.
 - `Escanear QR` abre otro bottom sheet local y permite saltar a otra obra sin ir a una pantalla de escáner separada.
 - `SALA_1` tiene una capability local de modo inmersivo en desarrollo: si la sala esta activa, la app ofrece `Entrar / Saltar`, muestra una lista de experiencias inmersivas y abre `sala-inmersiva` con el GLB/tour exportado desde Muse3D.
+- `sala-inmersiva` reproduce tours caminables, cielo, terreno base, countdown de headset, narración local por tramo y subtítulos SBS.
 
 ## Variables de entorno
 
@@ -90,7 +102,7 @@ Notas:
 
 ### Requisitos
 
-- Windows 10/11
+- Linux o Windows 10/11
 - Node.js 20 LTS
 - npm
 - Python 3.12+ para MuseRAG
@@ -152,22 +164,29 @@ curl http://127.0.0.1:8000/health
 
 ## Arranque de Expo
 
-### LAN en Windows
+### LAN en Linux
+
+```bash
+cd /home/eduardo/proyectos/iot/museiq/museiqApp
+npx expo start --dev-client --host lan -c
+```
+
+También puedes usar el script del package:
+
+```bash
+cd /home/eduardo/proyectos/iot/museiq/museiqApp
+npm run dev:client:lan
+```
+
+### LAN en Windows / WSL2
+
+Si trabajas desde Windows, ajusta la IP de tu PC antes de iniciar Metro:
 
 ```powershell
-cd C:\ruta\al\repo\iot
+cd C:\ruta\al\repo\museiqApp
 $env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.1.10"
 npx expo start --dev-client --lan --port 8081
 ```
-
-### Tunnel
-
-```powershell
-cd C:\ruta\al\repo\iot
-npm run dev:client
-```
-
-### WSL2
 
 Si trabajas desde WSL2 y necesitas exponer Metro hacia Windows, usa el script incluido:
 
@@ -178,7 +197,7 @@ powershell -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\eduardo\pr
 Luego en WSL:
 
 ```bash
-cd /home/eduardo/proyectos/iot/museiq/iot
+cd /home/eduardo/proyectos/iot/museiq/museiqApp
 npm run dev:client:lan
 ```
 
@@ -225,6 +244,9 @@ Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) +
 - visor con zoom y arrastre
 - memoria local por obra
 - panel de sensores
+- QR real con cámara, parsing local y handoff seguro hacia AR
+- AR MVP con cámara de fondo, GLB interactivo, loading animado, gesto de pinch y giro inicial de dos vueltas
+- resolución segura de modelos AR por obra, con fallbacks optimizados para móviles
 - sheets contextuales en `ar-activo` para audio y QR
 - CTA inferior de `Preguntar IA` como único acceso principal al modal de preguntas dentro del flujo AR
 - capability de sala inmersiva mediante `lib/room-experiences.ts`
@@ -234,29 +256,33 @@ Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) +
 - conversion de coordenadas Blender `Z-up` a Three/GLTF dentro del visor 3D
 - tracking de cabeza durante el tour: la ruta mueve la posicion y los sensores controlan la mirada
 - vista estereoscopica SBS para headset con countdown antes de iniciar el tour
-- terreno rocoso base con texturas en `assets/textures/terrain/` para reducir la sensacion de isla flotante
+- terreno rocoso extendido con texturas en `assets/textures/terrain/` para cubrir el footprint del modelo y del tour
+- narracion local por tramo en tours inmersivos con subtitulos duplicados para headset
 
 ## Roadmap técnico sugerido
 
 El roadmap activo de producto y flujo vive en [ROADMAP.md](ROADMAP.md). A nivel técnico, las prioridades inmediatas son:
 
-- completar la superficie terrestre en la renderizacion inmersiva para cubrir todo el suelo visible
-- agregar narracion sincronizada con el avance del tour en `sala-inmersiva`
-- conectar QR real con cámara y códigos de obra
+- completar QA de QR físico -> AR para todos los códigos impresos
+- sustituir fallbacks AR por modelos optimizados propios de cada obra
+- pulir materiales, escala y acabado del terreno inmersivo por experiencia
+- evolucionar la narracion inmersiva local hacia un contrato remoto/MuseRAG
 - definir el contrato `model_3d` y `hotspots` con MuseRAG
 - definir el contrato remoto de sala inmersiva: capability, modelo de entorno, tour, narrativa y hotspots del espacio
 - implementar el estado `T` de actualización disponible
 - implementar la pantalla dedicada `W Modelo 3D no disponible`
-- integrar AR real con ARCore/ARKit o alternativa compatible
+- evaluar si el siguiente paso AR será anclaje por plano, marcador visual o QR con ReactVision/ViroReact/ARCore
 
 Notas de implementación vigentes:
 
 - `ar-audio-activo.tsx` sigue existiendo como pantalla legada, pero el flujo principal ya usa un sheet de audio dentro de `ar-activo`.
-- `QrScannerOverlay` se reutiliza tanto en Home como dentro del sheet QR de `ar-activo`.
+- `QrScannerOverlay` queda como overlay visual/simulado y soporte del flujo legado; el Home actual usa `app/ar-qr.tsx` para QR real.
+- `ar-viro-activo.tsx` mantiene el nombre histórico, pero el MVP actual no usa ViroReact: usa `expo-camera` como fondo y GLB interactivo como overlay.
 - `components/museiq/ar-flow.tsx` concentra colores, HUD compartido y `ArSideRail`.
 - `lib/room-experiences.ts` concentra la consulta de experiencias inmersivas por sala.
 - `lib/immersive-experiences.generated.ts` es generado por Muse3D y conecta cada experiencia con su GLB local y su tour.
 - `lib/immersive-tours.ts` contiene el contrato local de tours. Se sincroniza desde `muse3d/routes/*.json` mediante `muse3d.py`.
+- Si agregas/quitas librerías nativas, plugins Expo o permisos, reconstruye el dev client antes de esperar hot reload desde Metro.
 
 ## Troubleshooting
 

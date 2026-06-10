@@ -28,9 +28,9 @@
 
 # MuseIQ
 
-> Guía móvil contextual e inmersiva para museos, con experiencia AR-first apoyada por BLE, QR, voz, MuseRAG e imágenes.
+> Guía móvil contextual e inmersiva para museos, con BLE, QR real, voz, MuseRAG, modelos 3D y experiencias de sala en modo inmersivo.
 
-MuseIQ está evolucionando desde una guía conversacional tradicional hacia una experiencia de mediación cultural centrada en la cámara o vista AR. La pantalla principal ya no se organiza como una app de tabs, sino como una visita inmersiva con controles flotantes, bottom sheets y paneles secundarios cuando el visitante necesita más detalle.
+MuseIQ está evolucionando desde una guía conversacional tradicional hacia una experiencia de mediación cultural contextual. La pantalla principal ya no se organiza como una app de tabs, sino como una visita inmersiva con controles flotantes, bottom sheets y paneles secundarios cuando el visitante necesita más detalle. El MVP actual prioriza un flujo estable: la app reconoce sala/obra por contexto, QR o selección manual, y muestra reconstrucciones 3D sobre cámara o en modo inmersivo cuando aportan valor a la visita.
 
 ## Fuente de verdad del flujo
 
@@ -42,9 +42,11 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 
 ## Enfoque actual
 
-- La cámara o fondo AR es el centro de la visita.
+- La cámara o fondo AR es una capa de apoyo, no el centro permanente de la visita.
 - BLE detecta sala o zona y resume el estado en el HUD.
 - Explorar sala y Escanear QR son acciones flotantes, no tabs.
+- `Escanear QR` en Home usa cámara real (`app/ar-qr.tsx`) y abre el visor AR MVP con la obra reconocida.
+- El AR MVP actual muestra cámara de fondo con GLB interactivo al centro (`app/ar-viro-activo.tsx`), sin depender todavía de anclaje espacial ARCore/ARKit.
 - En `ar-activo`, `Audio` vive como acción lateral superior y abre un bottom sheet.
 - Las preguntas se abren como modal inferior, no como pantalla independiente.
 - El detalle de obra se simplifica a `Detalles` e `Imagenes`.
@@ -61,14 +63,14 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 5. Home AR con sala detectada.
 6. Sugerencia BLE futura, expresada como hipótesis y con confirmación por QR.
 7. Explorar sala como bottom sheet con obras, imágenes y badges de recurso.
-8. Escanear QR como overlay de cámara con marco de lectura, cancelar y linterna.
-9. Obra identificada tras QR simulado.
+8. Escanear QR con cámara real, parsing local de códigos de obra y transición segura hacia AR.
+9. Obra identificada como pantalla de confirmación/fallback para flujos manuales o simulados.
 10. Detalle de obra con ficha, acciones AR/chat e imágenes relacionadas.
 11. Galería de imágenes relacionadas.
-12. Cargando AR, AR activo temporal y hotspot seleccionado.
+12. AR MVP con cámara de fondo, GLB interactivo, loading visual, gesto de manipulación e introducción con giro.
 13. Chat IA como modal inferior y audio/QR como sheets dentro de `ar-activo`.
 14. AR no disponible con fallback a visor 3D.
-15. Modo inmersivo por sala: entrar o saltar, elegir experiencia, cargar el GLB correspondiente y recorrer el espacio 3D con una ruta caminable.
+15. Modo inmersivo por sala: entrar o saltar, elegir experiencia, cargar el GLB correspondiente y recorrer el espacio 3D con una ruta caminable, narración local y subtítulos SBS.
 
 ## Flujo real en rutas
 
@@ -79,9 +81,11 @@ Secuencia principal actual:
 Ramas desde Home:
 
 - `Explorar` -> bottom sheet de sala -> `artwork-detail` -> `artwork-images`
-- `Escanear QR` -> overlay simulado -> `obra-identificada`
+- `Escanear QR` -> `ar-qr` -> `ar-viro-activo`
 - `Preguntar` -> `pregunta-voz-modal`
-- `Ver en AR` -> `cargando-ar` -> `ar-activo` -> `ar-hotspot-seleccionado`
+- `Ver sugerencia` -> `ar-viro-activo`
+- `Explorar` -> obra -> `artwork-detail` -> `Ver en AR` -> `ar-viro-activo`
+- Flujo AR contextual legado -> `cargando-ar` -> `ar-activo` -> `ar-hotspot-seleccionado`
 - Dentro de `ar-activo`: `Audio` -> bottom sheet, `Escanear QR` -> bottom sheet, `Preguntar IA` -> modal inferior
 - Sala con capability inmersiva -> prompt `Entrar / Saltar` -> lista de experiencias -> `cargando-inmersivo` -> `sala-inmersiva` con tour 3D
 - Fallback AR -> `ar-no-disponible` -> `visor-3d`
@@ -90,7 +94,8 @@ Ramas desde Home:
 
 El flujo visual completo incluye mas pantallas que el MVP actual. La cobertura real queda asi:
 
-- Cubierto: `1 Inicio`, `2 Seleccionar museo`, `3 Preparacion de visita`, `4 Home AR sin sala`, `5 Home AR sala detectada`, `6/13 Sugerencia BLE futura`, `7 Explorar sala`, `8 Escanear QR` como overlay simulado en Home y como sheet contextual en `ar-activo`, `9 Obra identificada`, `A Detalles de la obra`, `B Imagenes relacionadas`, `R Cargando AR`, `10 AR activo`, `11 Hotspot seleccionado`, `12 Chat IA` como modal inferior, `9 Audio activo` como sheet contextual y pantalla dedicada legada, `Y Modo inmersivo por sala` con entrada `Entrar / Saltar`, `Z Sala inmersiva 3D` con `lugar.glb`, `V AR no disponible`, `U Visor 3D sin AR`, `Q Permisos`, `P Sin conexion`, `S Error de conexion`, `X Resultado de QR invalido`, entrada manual de codigo QR, `J Menu drawer` compacto, `H Idioma` desde Configuracion, `K Perfil del visitante` desde el encabezado, `L Cambiar museo`, `M Configuracion`, `N Ayuda`, `O Modo tecnico` y cierre de sesion.
+- Cubierto: `1 Inicio`, `2 Seleccionar museo`, `3 Preparacion de visita`, `4 Home AR sin sala`, `5 Home AR sala detectada`, `6/13 Sugerencia BLE futura`, `7 Explorar sala`, `8 Escanear QR` con cámara real en Home y sheet contextual legado en `ar-activo`, `9 Obra identificada`, `A Detalles de la obra`, `B Imagenes relacionadas`, `R Cargando AR`, `10 AR activo` en modo MVP cámara + GLB, `11 Hotspot seleccionado`, `12 Chat IA` como modal inferior, `9 Audio activo` como sheet contextual y pantalla dedicada legada, `Y Modo inmersivo por sala` con entrada `Entrar / Saltar`, `Z Sala inmersiva 3D` con experiencias GLB locales, `V AR no disponible`, `U Visor 3D sin AR`, `Q Permisos`, `P Sin conexion`, `S Error de conexion`, `X Resultado de QR invalido`, entrada manual de codigo QR, `J Menu drawer` compacto, `H Idioma` desde Configuracion, `K Perfil del visitante` desde el encabezado, `L Cambiar museo`, `M Configuracion`, `N Ayuda`, `O Modo tecnico` y cierre de sesion.
+- Parcial: AR espacial real con anclaje ARCore/ARKit. El MVP estable muestra GLB sobre cámara con interacción manual, pero no intenta todavía anclar por plano, QR o image marker.
 - Parcial: `W Modelo 3D no disponible`. El visor 3D y el fallback de AR existen, pero falta una pantalla dedicada para el estado de modelo no disponible.
 - Faltante: `T Actualizacion` y pantalla dedicada completa de `W Modelo 3D no disponible`.
 
@@ -104,7 +109,7 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - `permissions-modal.tsx`: Modal de permisos integrado desde la preparación
 - `index.tsx`: Pantalla inicial principal del flujo
 - `_layout.tsx`: Orquestación de rutas
-- `(drawer)/home.tsx`: Home AR con estados de sala, sugerencia BLE, explorar sala y QR simulado
+- `(drawer)/home.tsx`: Home AR con estados de sala, sugerencia BLE, explorar sala, VR y QR real
 - `(drawer)/info-recorrido.tsx`: Exploración por salas y obras fuera del HUD principal, alineada al estilo oscuro del flujo
 - `(drawer)/perfil.tsx`: Perfil del visitante y resumen de actividad
 - `(drawer)/mis-visitas.tsx`: Ruta interna oculta; ya no aparece como opcion del drawer
@@ -115,12 +120,14 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - `(drawer)/ayuda.tsx`: Ayuda con buscador, temas frecuentes, guias rapidas y contacto
 - `(drawer)/ajustes.tsx`: Configuración agrupada por experiencia, conectividad, preferencias y soporte
 - `(drawer)/debug.tsx`: Modo técnico con estado del sistema, dispositivo y herramientas de desarrollo
+- `ar-qr.tsx`: Scanner QR real con `expo-camera`, mapping de códigos de obra y transición segura hacia AR MVP
 - `ar-no-disponible.tsx`: AR no disponible / fallback a visor 3D
 - `qr-invalido.tsx`: Resultado de QR inválido con reintento y entrada manual
 - `codigo-manual.tsx`: Ingreso manual de código QR y mapping local a obra
 - `sin-conexion.tsx`: Estado sin conexión para continuar con contenido offline
 - `error-conexion.tsx`: Estado de error MuseRAG/backend con reintento
-- `ar-activo.tsx`: Home AR - AR activo
+- `ar-activo.tsx`: Home AR - AR activo legado con sheets de audio/QR y hotspots
+- `ar-viro-activo.tsx`: AR MVP actual con cámara de fondo, GLB interactivo y modelos optimizados para overlay
 - `ar-audio-activo.tsx`: Pantalla legada de audio activo; el flujo principal actual usa sheet dentro de `ar-activo`
 - `ar-chat-ia.tsx`: Vista AR del flujo de preguntar
 - `obra-identificada.tsx`: Pantalla que muestra obra identificada
@@ -128,22 +135,24 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - `artwork-images.tsx`: Galería / imágenes relacionadas
 - `cargando-ar.tsx`: Indicador de carga de AR
 - `cargando-inmersivo.tsx`: Carga de reconstruccion 3D para modo inmersivo
-- `visor-3d.tsx`: Visor 3D (sin integrar AR completo)
+- `visor-3d.tsx`: Visor 3D fallback sin cámara
 - `sala-inmersiva.tsx`: Experiencia inmersiva por sala basada en un modelo 3D de entorno y un tour exportado desde Muse3D
 - `ar-hotspot-seleccionado.tsx`: Hotspot seleccionado (estado)
 - `pregunta-voz-modal.tsx`: Modal inferior de preguntas con voz prioritaria, markdown y fuentes
 
 ## Pantallas o funcionalidades pendientes
 
-- QR real con cámara, parsing y mapping a obra.
-- Completar la superficie terrestre del modo inmersivo para que el entorno no parezca una isla aislada.
-- Añadir narración sincronizada con el avance del tour en la sala inmersiva.
+- AR espacial real con anclaje estable por plano, marcador visual o QR si se decide retomar ReactVision/ViroReact.
+- Sustituir todos los fallbacks AR por GLB optimizados propios de cada obra.
+- Completar pruebas físicas del flujo QR -> AR con todos los códigos impresos.
+- Pulir materiales, escala y acabado visual del terreno rocoso extendido en modo inmersivo.
+- Evolucionar la narración inmersiva desde guion local estático hacia narrativa generada/servida por MuseRAG.
 - Estado de resiliencia: Actualización disponible.
 - Detección automática de conectividad para abrir Sin conexión/Error de conexión sin depender de una acción manual.
 - Estado dedicado de Modelo 3D no disponible.
 - Extender el modo inmersivo de sala a mas salas y mejorar su acabado visual/narrativo.
 - Sincronización de idioma, museo seleccionado, favoritos y actividad local con backend.
-- Descarga y renderizado final de modelos 3D por obra en AR.
+- Descarga y renderizado remoto de modelos 3D por obra en AR, no solo assets locales.
 
 
 ## Capacidades conservadas
@@ -157,6 +166,8 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - Progreso local y analítica básica.
 - Modo técnico con BLE, sensores y depuración.
 - Tours inmersivos con vista SBS, countdown de headset, tracking de cabeza y rutas exportadas desde Muse3D.
+- QR real con cámara y mapeo local a obras.
+- AR MVP con cámara de fondo, GLB interactivo, gesto de manipulación, loading animado y rotación inicial.
 
 ## Arquitectura visual reciente
 
@@ -164,6 +175,7 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - `features/home/components/`: HUD, explorar sala y escena central del Home.
 - `components/museiq/home/`: overlay QR reutilizable y componentes visuales compartidos del Home.
 - `components/museiq/ar-flow.tsx`: HUD compartido de AR, side rail y modelo 3D reutilizable.
+- `lib/ar-artwork-experiences.ts`: selección de modelos AR optimizados/fallback por obra para evitar crashes con GLB pesados.
 - `hooks/use-home-ble-status.ts`: estado BLE resumido para Home AR.
 - `features/chat/hooks/use-artwork-chat-controller.ts`: controlador compartido para chat, RAG y voz.
 
@@ -173,25 +185,31 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 | --- | --- |
 | UI móvil | Expo Router, React Native, TypeScript |
 | Navegación | Stack, Drawer, rutas modales |
-| Conectividad | `react-native-ble-plx`, `expo-sensors` |
+| Conectividad | `react-native-ble-plx`, `expo-sensors`, `expo-camera` |
 | Voz | `expo-speech`, `expo-speech-recognition` |
 | Persistencia | `expo-sqlite` |
+| 3D | `expo-gl`, Three.js, GLB locales |
 | IA | MuseRAG |
 
 ## Comandos útiles
 
 ```bash
+cd /home/eduardo/proyectos/iot/museiq/museiqApp
 npm install
 npx tsc --noEmit
 npm run lint
-npm run dev:client
+npx expo start --dev-client --host lan -c
 ```
 
 ## Estado actual
 
 La base AR-first ya está montada para el flujo visual principal y para las pantallas auxiliares del drawer. El drawer actual queda deliberadamente compacto: Inicio, Explorar salas, Cambiar museo, Configuracion, Ayuda, Modo tecnico, Perfil desde el encabezado e Idioma desde Configuracion. `Mis visitas`, `Favoritos` e `Historial` se conservan como rutas internas ocultas, pero ya no saturan el menu.
 
-El Home fue depurado para dejar solo las acciones esenciales del HUD: menu, nombre de sala, audio, explorar, preguntar y QR. `Preguntar` ahora abre un modal que sube desde abajo, prioriza la interacción por voz y renderiza la respuesta en Markdown.
+El Home fue depurado para dejar solo las acciones esenciales del HUD: menu, nombre de sala, audio, explorar, preguntar, VR y QR. `Preguntar` ahora abre un modal que sube desde abajo, prioriza la interacción por voz y renderiza la respuesta en Markdown.
+
+`Escanear QR` en Home ya no es solo una maqueta visual: abre `ar-qr`, usa `expo-camera`, interpreta códigos locales de obra y navega a `ar-viro-activo`. Para evitar el crash de cámaras nativas encadenadas, el scanner desmonta su `CameraView` antes de montar el visor AR MVP.
+
+El AR estable del MVP vive en `ar-viro-activo`: usa cámara de fondo, muestra el GLB de la obra en primer plano, permite manipulación manual y resuelve modelos AR optimizados desde `lib/ar-artwork-experiences.ts`. Este enfoque prioriza una demostración robusta para museo; el anclaje espacial real con ARCore/ARKit queda como siguiente línea de investigación, no como dependencia del MVP.
 
 En `ar-activo`, la experiencia tambien se simplificó: boton de retroceso superior izquierdo, accion `Audio` superior derecha, `Preguntar IA` como CTA principal inferior y `Escanear QR` como sheet contextual para saltar a otra obra sin abandonar la escena.
 
@@ -201,9 +219,9 @@ En desarrollo, `SALA_1` ya expone una capability local de `modo inmersivo`. Cuan
 
 La sala inmersiva ya consume rutas caminables generadas en Muse3D desde Blender mediante camaras `Tour_XX` y targets `Target_XX`. Las rutas se definen originalmente en coordenadas Blender `Z-up`, se versionan como JSON en `muse3d/routes/` y se reflejan en `lib/immersive-tours.ts` para que la app las reproduzca. El visor convierte esas coordenadas a Three/GLTF y permite que el tour mueva la posicion mientras el visitante controla la mirada con el headset.
 
-El visor inmersivo ya incluye countdown para colocarse el headset, render estereoscopico SBS, tracking de mirada con mayor sensibilidad arriba/abajo e izquierda/derecha, cielo de entorno y una primera base de terreno rocoso. La siguiente mejora visual es extender esa superficie terrestre a todo el suelo para que el modelo deje de sentirse como una isla flotante. La siguiente mejora narrativa es reproducir audio guiado sincronizado con cada tramo del tour.
+El visor inmersivo ya incluye countdown para colocarse el headset, render estereoscopico SBS, tracking de mirada con mayor sensibilidad arriba/abajo e izquierda/derecha, cielo de entorno, terreno rocoso extendido sobre el footprint del modelo/ruta y narración local por tramo con subtítulos duplicados para headset. La siguiente mejora visual es pulir materiales, escala y acabado del terreno por experiencia. La siguiente mejora narrativa es conectar esos guiones locales con un contrato remoto/MuseRAG.
 
-El reconocimiento automatico de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. El QR real, AR real y carga de modelos 3D son las próximas integraciones fuertes.
+El reconocimiento automatico de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. Lo próximo es estabilizar QA de QR físico -> AR para todas las obras, optimizar modelos por obra y decidir si el siguiente salto AR será anclaje por plano, marcador visual o QR.
 
 ## Documentación relacionada
 
