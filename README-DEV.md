@@ -6,15 +6,23 @@ Guía técnica de MuseIQ para desarrollo local, pruebas de sala, integración co
 
 El proyecto está validado con este escenario de prueba:
 
-- una sala operativa en la app: `SALA_1`
-- tres ESP32 de prueba: `S1-M1`, `S1-M2` y `S1-M3`
-- detección visible en la pantalla de recorrido y en el modal de consulta
+- una sala normal en la app: `SALA_1`
+- seis obras activas en `SALA_1`
+- tres beacons ESP32 de sala normal: `S1`, `S2` y `S3`
+- una sala inmersiva: `SALA_VR`
+- un beacon ESP32 para modo inmersivo: `S4`
+- detección visible en Home, sugerencia probable de obra y entrada a modo VR
 
 Para pruebas rápidas, el scanner acepta fallback por nombre BLE:
 
 - `S1-M1` -> `SALA_1-B01`
 - `S1-M2` -> `SALA_1-B02`
 - `S1-M3` -> `SALA_1-B03`
+- `S1` -> `SALA_1-B01`
+- `S2` -> `SALA_1-B02`
+- `S3` -> `SALA_1-B03`
+- `S4` -> `SALA_VR-B04`
+- `VR-M4`, `SVR-M4` o `SALA_VR-M4` -> `SALA_VR-B04`
 
 ## Stack técnico
 
@@ -67,11 +75,13 @@ Referencia rápida: [ARCHITECTURE.md](ARCHITECTURE.md)
 ## Flujo de la app
 
 1. El usuario entra al recorrido y la app detecta contexto físico mediante BLE y sensores.
-2. Elige una obra o deja que el contexto de sala determine la referencia dominante.
-3. Abre el chat por texto o por voz.
-4. La app envía la consulta a MuseRAG con museo, sala, obra, modo de respuesta y contexto de la obra.
-5. La respuesta vuelve con texto, metadatos y, cuando hay fuentes, imágenes asociadas.
-6. El usuario puede escuchar la respuesta y seguir el texto mientras se reproduce.
+2. En `SALA_1`, BLE estima la fila/zona y la orientacion ayuda a elegir obra izquierda/derecha como hipótesis.
+3. El QR fisico confirma la obra exacta y abre el GLB contextual cuando existe.
+4. En `SALA_VR`, el beacon `S4` activa la lista de experiencias inmersivas.
+5. El usuario puede abrir chat por texto o voz desde obra, AR o flujo contextual.
+6. La app envía la consulta a MuseRAG con museo, sala, obra, modo de respuesta y contexto de la obra.
+7. La respuesta vuelve con texto, metadatos y, cuando hay fuentes, imágenes asociadas.
+8. El usuario puede escuchar la respuesta y seguir el texto mientras se reproduce.
 
 En el flujo AR/3D actual:
 
@@ -86,7 +96,7 @@ En el flujo AR/3D actual:
 - `Preguntar IA` abre `pregunta-voz-modal`.
 - `Audio` abre un bottom sheet local dentro de `ar-activo`.
 - `Escanear QR` abre otro bottom sheet local y permite saltar a otra obra sin ir a una pantalla de escáner separada.
-- `SALA_1` tiene una capability local de modo inmersivo en desarrollo: si la sala esta activa, la app ofrece `Entrar / Saltar`, muestra una lista de experiencias inmersivas y abre `sala-inmersiva` con el GLB/tour exportado desde Muse3D.
+- `SALA_VR` tiene una capability local de modo inmersivo: si la sala esta activa, la app ofrece `Entrar VR`, muestra una lista de experiencias inmersivas y abre `sala-inmersiva` con el GLB/tour exportado desde Muse3D.
 - `sala-inmersiva` reproduce tours caminables, cielo, terreno base, countdown de headset, narración local por tramo y subtítulos SBS.
 
 ## Variables de entorno
@@ -236,9 +246,12 @@ Payload esperado en `serviceData`:
 Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) + TX Power (1 byte signed) + Battery mV (2 bytes little-endian)
 ```
 
+Para el MVP, los `Room ID` esperados son `SALA_1` y `SALA_VR`. En `SALA_1`, `Beacon Node` 1, 2 y 3 representan las tres franjas de la sala normal. En `SALA_VR`, `Beacon Node` 4 representa la zona que habilita modo inmersivo.
+
 ## Features actuales
 
 - detección de beacon dominante por sala
+- prediccion local de obra probable en `SALA_1` usando beacon S1-S3, orientacion y movimiento
 - navegación por obras del recorrido
 - chat contextual por texto
 - dictado por voz
@@ -355,6 +368,6 @@ npx tsc --noEmit
 
 ## Lo importante del MVP
 
-- La app ya no depende solo de `serviceData`; tambien acepta los nombres BLE `S1-M1`, `S1-M2`, `S1-M3`.
-- La pantalla `Recorrido` ya muestra los datos escaneados para validar el comportamiento real en sala.
-- El enfoque actual es validar estabilidad de deteccion antes de endurecer el protocolo BLE definitivo.
+- La app ya no depende solo de `serviceData`; tambien acepta nombres BLE de prueba para `S1`, `S2`, `S3` y `S4`.
+- Home muestra la sala normal con obra probable o la Sala VR con entrada inmersiva, segun el beacon dominante.
+- El enfoque actual es validar estabilidad de deteccion y recorrido fisico antes de endurecer el protocolo BLE definitivo.

@@ -74,77 +74,71 @@ export interface MuseumMock {
   voicePrompts: string[];
 }
 
+export const MVP_NORMAL_ROOM_ID = "SALA_1";
+export const MVP_IMMERSIVE_ROOM_ID = "SALA_VR";
+export const MVP_NORMAL_ROOM_MAX_ORDER = 6;
+
 export const museumMock: MuseumMock = {
   museum: {
     id: "trujillo_museo",
     name: "MuseIQ Trujillo",
     routeName: "Tumbas Reales y Poder del Norte",
     description:
-      "Recorrido de dos salas dedicado a Sipan, la elite moche y la iconografia ceremonial del norte peruano.",
+      "Recorrido MVP con una sala normal guiada por BLE/QR y una sala VR con experiencia inmersiva.",
     supportContact: "soporte@museiq.app",
     city: "Trujillo",
     country: "Peru",
-    estimatedDurationMinutes: 50,
+    estimatedDurationMinutes: 25,
   },
 
   rooms: [
     {
-      id: "SALA_1",
+      id: MVP_NORMAL_ROOM_ID,
       name: "Sala 1",
       order: 1,
-      description: "Senores de Sipan: poder, ritual y entierro en la elite moche.",
+      description: "Sala normal con 6 obras, beacons BLE S1-S3 y QR fisicos por obra para abrir material 3D complementario.",
       zoneLabelDefault: "entrada principal",
       directionHint: "avanza hacia el centro de la sala",
-      sequenceLabel: "Sipan",
-      statusLabel: "12 obras activas",
+      sequenceLabel: "Sala normal",
+      statusLabel: "6 obras activas",
       zones: [
         {
-          id: "Z1",
-          label: "Entrada",
-          narrationHint: "Presenta el hallazgo de Sipan y la nocion de poder sagrado.",
+          id: "S1",
+          label: "Beacon S1",
+          narrationHint: "Primera zona BLE: estima si el visitante observa la obra 1 o la obra 2.",
         },
         {
-          id: "Z2",
-          label: "Centro",
-          narrationHint: "Reune insignias de prestigio, textiles y objetos de mando.",
+          id: "S2",
+          label: "Beacon S2",
+          narrationHint: "Segunda zona BLE: estima si el visitante observa la obra 3 o la obra 4.",
         },
         {
-          id: "Z3",
-          label: "Salida",
-          narrationHint: "Cierra con ajuar funerario y la continuidad del relato moche.",
+          id: "S3",
+          label: "Beacon S3",
+          narrationHint: "Tercera zona BLE: estima si el visitante observa la obra 5 o la obra 6.",
         },
       ],
     },
     {
-      id: "SALA_2",
-      name: "Sala 2",
+      id: MVP_IMMERSIVE_ROOM_ID,
+      name: "Sala VR",
       order: 2,
-      description: "Metalurgia e iconografia del norte: ornamentos, vasos y emblemas ceremoniales.",
-      zoneLabelDefault: "acceso a la segunda sala",
-      directionHint: "continua por el recorrido lateral",
-      sequenceLabel: "Ornamentos",
-      statusLabel: "10 obras activas",
+      description: "Sala inmersiva detectada por BLE: no contiene obras fisicas activas, sino una experiencia VR de entorno 3D.",
+      zoneLabelDefault: "zona inmersiva",
+      directionHint: "colocate el headset para iniciar el recorrido inmersivo",
+      sequenceLabel: "Modo VR",
+      statusLabel: "Modo inmersivo disponible",
       zones: [
         {
-          id: "Z1",
-          label: "Entrada",
-          narrationHint: "Introduce coronas, collares y cuchillos ceremoniales.",
-        },
-        {
-          id: "Z2",
-          label: "Centro",
-          narrationHint: "Desarrolla iconografia, mitos y objetos de representacion.",
-        },
-        {
-          id: "Z3",
-          label: "Salida",
-          narrationHint: "Cierra con vasos, procesiones y piezas de prestigio tardio.",
+          id: "S4",
+          label: "Beacon S4",
+          narrationHint: "Beacon de Sala VR: activa la lista de experiencias inmersivas disponibles.",
         },
       ],
     },
   ],
 
-  artworks: [
+  artworks: ([
     {
       id: "obra-1-1-L",
       roomId: "SALA_1",
@@ -178,7 +172,7 @@ export const museumMock: MuseumMock = {
       roomId: "SALA_1",
       row: 1,
       col: 2,
-      colName: "centro",
+      colName: "derecha",
       zone: "Entrada",
       order: 2,
       title: "Tumba principal de Sipan",
@@ -194,7 +188,7 @@ export const museumMock: MuseumMock = {
       audioText:
         "Esta tumba no solo guarda objetos; tambien conserva relaciones espaciales que permiten leer rango, ritual y secuencia funeraria.",
       tags: ["tumba", "excavacion", "contexto"],
-      locationHint: "Entrada, eje central.",
+      locationHint: "Fila S1, lado derecho.",
       suggestedQuestions: [
         "Que revela la tumba sobre el personaje?",
         "Como se excavo este contexto?",
@@ -204,10 +198,10 @@ export const museumMock: MuseumMock = {
     {
       id: "obra-1-1-R",
       roomId: "SALA_1",
-      row: 1,
-      col: 3,
-      colName: "derecha",
-      zone: "Entrada",
+      row: 2,
+      col: 1,
+      colName: "izquierda",
+      zone: "Centro",
       order: 3,
       title: "Conjunto de joyas de elite",
       author: "Orfebres mochicas",
@@ -222,7 +216,7 @@ export const museumMock: MuseumMock = {
       audioText:
         "Observa como las joyas no son simples adornos: comunican autoridad, pertenencia y acceso a ceremonias exclusivas.",
       tags: ["joyas", "orfebreria", "prestigio"],
-      locationHint: "Entrada, lado derecho.",
+      locationHint: "Fila S2, lado izquierdo.",
       suggestedQuestions: [
         "Que materiales usaban los orfebres?",
         "Estas joyas eran solo decorativas?",
@@ -233,8 +227,8 @@ export const museumMock: MuseumMock = {
       id: "obra-1-2-L",
       roomId: "SALA_1",
       row: 2,
-      col: 1,
-      colName: "izquierda",
+      col: 2,
+      colName: "derecha",
       zone: "Centro",
       order: 4,
       title: "Arete ceremonial de oro",
@@ -250,7 +244,7 @@ export const museumMock: MuseumMock = {
       audioText:
         "Este arete destaca por su escala y brillo: en ceremonia, transformaba la presencia del portador y reforzaba su autoridad.",
       tags: ["arete", "oro", "insignia"],
-      locationHint: "Segunda fila, lado izquierdo.",
+      locationHint: "Fila S2, lado derecho.",
       suggestedQuestions: [
         "Quien podia usar un arete asi?",
         "Como se fabricaba?",
@@ -260,10 +254,10 @@ export const museumMock: MuseumMock = {
     {
       id: "obra-1-2-C",
       roomId: "SALA_1",
-      row: 2,
-      col: 2,
-      colName: "centro",
-      zone: "Centro",
+      row: 3,
+      col: 1,
+      colName: "izquierda",
+      zone: "Salida",
       order: 5,
       title: "Pendiente de prestigio",
       author: "Orfebres mochicas",
@@ -278,7 +272,7 @@ export const museumMock: MuseumMock = {
       audioText:
         "Los pendientes se activaban con el movimiento del cuerpo, haciendo visible el rango del portador durante procesiones y rituales.",
       tags: ["pendiente", "vestimenta", "ritual"],
-      locationHint: "Segunda fila, centro.",
+      locationHint: "Fila S3, lado izquierdo.",
       suggestedQuestions: [
         "Como se combinaba con otras piezas?",
         "Tenia un uso diario o ceremonial?",
@@ -288,10 +282,10 @@ export const museumMock: MuseumMock = {
     {
       id: "obra-1-2-R",
       roomId: "SALA_1",
-      row: 2,
-      col: 3,
+      row: 3,
+      col: 2,
       colName: "derecha",
-      zone: "Centro",
+      zone: "Salida",
       order: 6,
       title: "Textil funerario",
       author: "Tejedores especializados",
@@ -306,7 +300,7 @@ export const museumMock: MuseumMock = {
       audioText:
         "Aunque el metal concentra la mirada, los textiles eran esenciales para envolver, proteger y jerarquizar al difunto.",
       tags: ["textil", "funerario", "vestimenta"],
-      locationHint: "Segunda fila, lado derecho.",
+      locationHint: "Fila S3, lado derecho.",
       suggestedQuestions: [
         "Por que los textiles eran tan valiosos?",
         "Se conservaron completos?",
@@ -761,15 +755,15 @@ export const museumMock: MuseumMock = {
         "Que deberiamos recordar al salir?",
       ],
     },
-  ],
+  ] satisfies ArtworkMock[]).filter((artwork) => artwork.roomId === MVP_NORMAL_ROOM_ID && artwork.order <= MVP_NORMAL_ROOM_MAX_ORDER),
 
-  route: [
-    { artworkId: "obra-1-1-L", roomId: "SALA_1", sequence: 1, hint: "Comienza en la entrada de la Sala 1, lado izquierdo." },
-    { artworkId: "obra-1-1-C", roomId: "SALA_1", sequence: 2, hint: "Muevete al centro de la entrada." },
-    { artworkId: "obra-1-1-R", roomId: "SALA_1", sequence: 3, hint: "Cierra la primera fila por el lado derecho." },
-    { artworkId: "obra-1-2-L", roomId: "SALA_1", sequence: 4, hint: "Avanza a la segunda fila, lado izquierdo." },
-    { artworkId: "obra-1-2-C", roomId: "SALA_1", sequence: 5, hint: "Continua por el centro de la sala." },
-    { artworkId: "obra-1-2-R", roomId: "SALA_1", sequence: 6, hint: "Termina la segunda fila a la derecha." },
+  route: ([
+    { artworkId: "obra-1-1-L", roomId: "SALA_1", sequence: 1, hint: "Beacon S1: obra izquierda de la primera fila." },
+    { artworkId: "obra-1-1-C", roomId: "SALA_1", sequence: 2, hint: "Beacon S1: obra derecha de la primera fila." },
+    { artworkId: "obra-1-1-R", roomId: "SALA_1", sequence: 3, hint: "Beacon S2: obra izquierda de la segunda fila." },
+    { artworkId: "obra-1-2-L", roomId: "SALA_1", sequence: 4, hint: "Beacon S2: obra derecha de la segunda fila." },
+    { artworkId: "obra-1-2-C", roomId: "SALA_1", sequence: 5, hint: "Beacon S3: obra izquierda de la tercera fila." },
+    { artworkId: "obra-1-2-R", roomId: "SALA_1", sequence: 6, hint: "Beacon S3: obra derecha de la tercera fila." },
     { artworkId: "obra-1-3-L", roomId: "SALA_1", sequence: 7, hint: "Avanza a la tercera fila, lado izquierdo." },
     { artworkId: "obra-1-3-C", roomId: "SALA_1", sequence: 8, hint: "Observa la obra central de la tercera fila." },
     { artworkId: "obra-1-3-R", roomId: "SALA_1", sequence: 9, hint: "Completa la tercera fila por la derecha." },
@@ -786,16 +780,16 @@ export const museumMock: MuseumMock = {
     { artworkId: "obra-2-3-C", roomId: "SALA_2", sequence: 20, hint: "Observa la pieza central de la tercera fila." },
     { artworkId: "obra-2-3-R", roomId: "SALA_2", sequence: 21, hint: "Cierra la tercera fila por la derecha." },
     { artworkId: "obra-2-4-C", roomId: "SALA_2", sequence: 22, hint: "Termina el recorrido en el centro de la zona de salida." },
-  ],
+  ] satisfies RouteStepMock[]).filter((step) => step.roomId === MVP_NORMAL_ROOM_ID && step.sequence <= MVP_NORMAL_ROOM_MAX_ORDER),
 
   faq: [
     {
       question: "Cuantas salas tiene este recorrido?",
-      answer: "El recorrido actual tiene 2 salas activas con 22 obras en total.",
+      answer: "El MVP tiene una sala normal con 6 obras y una Sala VR con experiencia inmersiva.",
     },
     {
       question: "Cuanto dura la visita?",
-      answer: "La visita guiada esta pensada para durar unos 50 minutos.",
+      answer: "La visita guiada MVP esta pensada para durar unos 25 minutos.",
     },
     {
       question: "Necesito internet?",

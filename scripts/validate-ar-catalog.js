@@ -30,6 +30,20 @@ function extractArtworks(datosSource) {
   return artworks;
 }
 
+function extractMvpCatalogFilter(datosSource) {
+  const roomMatch = datosSource.match(/MVP_NORMAL_ROOM_ID\s*=\s*"(?<roomId>[^"]+)"/);
+  const maxOrderMatch = datosSource.match(/MVP_NORMAL_ROOM_MAX_ORDER\s*=\s*(?<maxOrder>\d+)/);
+
+  if (!roomMatch?.groups?.roomId || !maxOrderMatch?.groups?.maxOrder) {
+    return undefined;
+  }
+
+  return {
+    maxOrder: Number(maxOrderMatch.groups.maxOrder),
+    roomId: roomMatch.groups.roomId,
+  };
+}
+
 function extractArtworkModels(modelSource) {
   const modelRegex =
     /"(?<artworkId>obra-[^"]+)":\s*{[\s\S]*?label:\s*"(?<label>[^"]+)"/g;
@@ -64,7 +78,14 @@ function groupBy(items, getKey) {
   }, new Map());
 }
 
-const artworks = extractArtworks(readFile(datosPath));
+const datosSource = readFile(datosPath);
+const mvpFilter = extractMvpCatalogFilter(datosSource);
+const allArtworks = extractArtworks(datosSource);
+const artworks = mvpFilter
+  ? allArtworks.filter(
+      (artwork) => artwork.roomId === mvpFilter.roomId && artwork.order <= mvpFilter.maxOrder,
+    )
+  : allArtworks;
 const artworkModels = extractArtworkModels(readFile(modelMapPath));
 const arOverrides = extractArOverrides(readFile(arExperiencePath));
 
@@ -91,6 +112,11 @@ const readyRows = artworks.map((artwork) => {
 console.log("\nMuseIQ AR catalog QA");
 console.log("====================");
 console.log(`Obras detectadas: ${artworks.length}`);
+if (mvpFilter) {
+  console.log(
+    `Filtro MVP: ${mvpFilter.roomId} orden <= ${mvpFilter.maxOrder} (${allArtworks.length} obras fuente)`,
+  );
+}
 console.log(`Modelos registrados: ${artworkModels.size}`);
 console.log(`Overrides AR: ${arOverrides.size}`);
 console.log(`QR duplicados: ${duplicateQrCodes.length}`);

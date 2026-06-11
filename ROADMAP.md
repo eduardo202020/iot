@@ -1,6 +1,6 @@
 # Roadmap MuseIQ AR-first
 
-Actualizado: 2026-06-10
+Actualizado: 2026-06-11
 
 Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real presente en `app/`. Si las referencias de `pantallas/` no están disponibles en el repo local, usa este archivo y `README.md` como fuente de verdad operativa. El objetivo es convertir MuseIQ en una guía inmersiva, sobria y museográfica, sin perder las funciones ya existentes de BLE, MuseRAG, voz, imágenes y modo técnico.
 
@@ -8,12 +8,14 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 
 - La experiencia principal es Home AR, no un set de tabs.
 - BLE detecta sala/zona; no debe afirmar obra exacta sin QR o selección explícita.
+- En el MVP, `SALA_1` usa beacons S1-S3 para estimar fila/zona y sensores para sugerir izquierda/derecha.
 - QR identifica una obra exacta y abre la experiencia 3D contextual si hay GLB; si no, muestra una pausa de decisión/fallback.
 - Info y fuentes no son acciones permanentes del Home ni tabs persistentes del detalle.
 - En AR activo, `Audio` puede vivir como acción lateral superior; `Preguntar IA` queda como CTA inferior principal.
 - Preguntar debe sentirse como un modal contextual que emerge sobre la experiencia.
 - Escanear QR en Home usa cámara real; dentro del AR legado puede seguir funcionando como sheet contextual.
 - Algunas salas pueden declarar una capability de `modo inmersivo`, ofrecer `Entrar / Saltar` y cargar un modelo 3D del espacio.
+- En el MVP, `SALA_VR` se activa con beacon S4 y no mezcla obras fisicas con experiencias inmersivas.
 - El modo inmersivo debe permitir elegir entre varias experiencias de una sala, reproducir un tour caminable y dejar que el headset controle la mirada.
 - La narracion del modo inmersivo acompaña el recorrido por tramo en versión local; el siguiente paso es llevarla a contrato remoto/MuseRAG.
 - La interfaz usa azul MuseIQ como color primario, con botones de borde en el HUD.
@@ -31,6 +33,14 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 8. `cargando-ar`, `ar-activo`, `ar-hotspot-seleccionado`: recorrido AR contextual legado.
 9. `ar-no-disponible` y `visor-3d`: degradación cuando AR no está disponible.
 10. `cargando-inmersivo`, `sala-inmersiva`: experiencia 3D de sala cuando la capability inmersiva esta disponible.
+
+## Escenario MVP fisico
+
+- `SALA_1`: 6 obras activas, organizadas como 3 filas por 2 columnas.
+- `SALA_1`: S1 estima fila 1, S2 estima fila 2 y S3 estima fila 3.
+- `SALA_1`: orientacion/movimiento ayudan a elegir la obra probable izquierda o derecha, siempre como sugerencia.
+- `SALA_1`: cada obra se confirma con QR fisico antes de abrir su GLB contextual.
+- `SALA_VR`: S4 activa modo inmersivo y abre la lista de experiencias de sala.
 
 ## Cobertura por `flujo.png`
 
@@ -129,7 +139,8 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] Audio activo con control básico como sheet en `ar-activo`.
 - [x] QR contextual en `ar-activo` como sheet para cambiar de obra.
 - [x] AR MVP con cámara de fondo y GLB interactivo (`ar-viro-activo.tsx`).
-- [x] Capability inmersiva por sala, con entrada manual en desarrollo sobre `SALA_1`.
+- [x] Capability inmersiva por sala, activada localmente sobre `SALA_VR`.
+- [x] Separacion de flujo normal (`SALA_1` con obras/QR) y flujo inmersivo (`SALA_VR` con experiencias VR).
 - [x] Estados de QR invalido, error de conexión y sin conexión (`X`, `S`, `P`) como pantallas de flujo.
 - [ ] Estado de actualización (`T`) integrado al flujo.
 
@@ -180,14 +191,14 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 
 ## Próximos pasos recomendados
 
-1. Probar el flujo QR físico -> AR contextual/fallback con todos los códigos impresos y registrar qué obras usan fallback de modelo.
-2. Reemplazar los fallbacks AR por GLB optimizados propios de cada obra para que el MVP no dependa de modelos compartidos.
-3. Pulir materiales, escala y acabado del terreno inmersivo para que cada experiencia se sienta integrada al entorno.
-4. Evolucionar la narracion inmersiva: mantener guion local robusto, pero definir contrato remoto por tramo con MuseRAG/backend.
-5. Integrar estado `T`: actualización disponible.
-6. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
-7. Definir contrato remoto de capability inmersiva por sala y sustituir el mapping local de `SALA_1`.
-8. Decidir si el siguiente AR debe usar anclaje por plano, marcador visual o QR; solo entonces retomar ARCore/ARKit/ReactVision.
+1. Probar el recorrido fisico Sala 1 -> Sala VR con los beacons S1-S4 y los QR impresos de las 6 obras.
+2. Ajustar umbrales de RSSI, orientacion y movimiento para que la sugerencia BLE sea util sin afirmar falsos positivos.
+3. Reemplazar los fallbacks AR por GLB optimizados propios de cada obra para que el MVP no dependa de modelos compartidos.
+4. Pulir materiales, escala y acabado del terreno inmersivo para que cada experiencia se sienta integrada al entorno.
+5. Evolucionar la narracion inmersiva: mantener guion local robusto, pero definir contrato remoto por tramo con MuseRAG/backend.
+6. Integrar estado `T`: actualización disponible.
+7. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
+8. Definir contrato remoto de capability inmersiva por sala y sustituir el mapping local de `SALA_VR`.
 
 ## Validación esperada
 

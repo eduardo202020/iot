@@ -54,6 +54,17 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 - Algunas salas pueden anunciar un `modo inmersivo` a partir del contexto de sala, mostrar una lista de experiencias 3D y reproducir tours generados desde Muse3D/Blender.
 - La sala inmersiva usa vista estereoscopica SBS para headset, temporizador previo, tracking de cabeza y rutas caminables por posicion.
 
+## Escenario MVP de recorrido
+
+El caso de prueba actual representa un museo piloto con dos zonas:
+
+- `SALA_1`: sala normal con 6 obras distribuidas en 3 filas y 2 columnas.
+- `SALA_1`: beacons BLE `S1`, `S2` y `S3` estiman la fila/zona mas probable del visitante.
+- `SALA_1`: orientacion del telefono y movimiento ayudan a elegir si la hipotesis apunta a la obra izquierda o derecha.
+- Cada obra tiene QR fisicos cercanos; el QR confirma la obra exacta y abre su GLB como material 3D complementario.
+- `SALA_VR`: sala inmersiva detectada por beacon `S4`, sin obras fisicas activas en la app.
+- `SALA_VR`: al detectarse, Home cambia el CTA central a `Entrar VR` y muestra la lista de experiencias inmersivas disponibles.
+
 ## Flujo implementado
 
 1. Inicio con fondo inmersivo y logo MuseIQ.
@@ -61,7 +72,7 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 3. Preparación de visita con permisos y requisitos.
 4. Home AR sin sala detectada.
 5. Home AR con sala detectada.
-6. Sugerencia BLE futura, expresada como hipótesis y con confirmación por QR.
+6. Sugerencia probable de obra por BLE, orientacion y movimiento, expresada como hipótesis y confirmada por QR.
 7. Explorar sala como bottom sheet con obras, imágenes y badges de recurso.
 8. Escanear QR con cámara real, parsing local de códigos de obra y transición directa a la experiencia 3D contextual cuando hay GLB.
 9. Obra identificada como pantalla de confirmación/fallback para flujos manuales, simulados o sin modelo 3D.
@@ -85,6 +96,7 @@ Ramas desde Home:
 - `Preguntar` -> `pregunta-voz-modal`
 - `Ver sugerencia` -> `ar-viro-activo`
 - `Explorar` -> obra -> `artwork-detail` -> `Ver en AR` -> `ar-viro-activo`
+- Sala VR detectada por BLE -> `Entrar VR` -> lista de experiencias -> `cargando-inmersivo` -> `sala-inmersiva`
 - Flujo AR contextual legado -> `cargando-ar` -> `ar-activo` -> `ar-hotspot-seleccionado`
 - Dentro de `ar-activo`: `Audio` -> bottom sheet, `Escanear QR` -> bottom sheet, `Preguntar IA` -> modal inferior
 - Sala con capability inmersiva -> prompt `Entrar / Saltar` -> lista de experiencias -> `cargando-inmersivo` -> `sala-inmersiva` con tour 3D
@@ -215,13 +227,13 @@ En `ar-activo`, la experiencia tambien se simplificó: boton de retroceso superi
 
 `obra-identificada` tambien se simplificó: boton de retroceso superior izquierdo, `Audio` superior derecho, card central mas grande y un unico CTA horizontal de `Ver en AR`.
 
-En desarrollo, `SALA_1` ya expone una capability local de `modo inmersivo`. Cuando la app reconoce esa sala en el estado actual del recorrido, ofrece `Entrar` o `Saltar`, muestra experiencias inmersivas disponibles y abre una vista SBS pensada para headset.
+En desarrollo, `SALA_VR` expone una capability local de `modo inmersivo`. Cuando la app reconoce esa sala por BLE, deja de sugerir obras, cambia el CTA central a `Entrar VR`, muestra experiencias inmersivas disponibles y abre una vista SBS pensada para headset.
 
 La sala inmersiva ya consume rutas caminables generadas en Muse3D desde Blender mediante camaras `Tour_XX` y targets `Target_XX`. Las rutas se definen originalmente en coordenadas Blender `Z-up`, se versionan como JSON en `muse3d/routes/` y se reflejan en `lib/immersive-tours.ts` para que la app las reproduzca. El visor convierte esas coordenadas a Three/GLTF y permite que el tour mueva la posicion mientras el visitante controla la mirada con el headset.
 
 El visor inmersivo ya incluye countdown para colocarse el headset, render estereoscopico SBS, tracking de mirada con mayor sensibilidad arriba/abajo e izquierda/derecha, cielo de entorno, terreno rocoso extendido sobre el footprint del modelo/ruta y narración local por tramo con subtítulos duplicados para headset. La siguiente mejora visual es pulir materiales, escala y acabado del terreno por experiencia. La siguiente mejora narrativa es conectar esos guiones locales con un contrato remoto/MuseRAG.
 
-El reconocimiento automatico de obra por BLE queda deliberadamente para el final; por ahora BLE detecta sala y prepara sugerencias futuras. Lo próximo es estabilizar QA de QR físico -> AR contextual/fallback para todas las obras, optimizar modelos por obra y decidir si el siguiente salto AR será anclaje por plano, marcador visual o QR.
+El reconocimiento automatico de obra queda planteado como hipótesis contextual: BLE estima fila/zona, sensores orientan izquierda/derecha y el QR confirma la obra exacta antes de abrir el GLB. Lo próximo es probar este recorrido fisico Sala 1 -> Sala VR con beacons reales, ajustar umbrales de RSSI/orientacion y reemplazar los fallbacks AR por GLB optimizados propios de cada obra.
 
 ## Documentación relacionada
 

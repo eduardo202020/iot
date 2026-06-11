@@ -112,6 +112,8 @@ export function HomeBottomHud({
   onOpenQr,
   shouldShowSuggestionCta,
 }: HomeBottomHudProps) {
+  const isImmersiveAction = centralLabel === "Entrar VR";
+
   return (
     <View style={styles.bottomHud}>
       <View style={styles.bottomActionsRow}>
@@ -127,7 +129,7 @@ export function HomeBottomHud({
         >
           <Ionicons
             color={shouldShowSuggestionCta ? musePalette.primary : "#FFFFFF"}
-            name="sparkles-outline"
+            name={isImmersiveAction ? "glasses-outline" : "sparkles-outline"}
             size={44}
           />
         </Pressable>

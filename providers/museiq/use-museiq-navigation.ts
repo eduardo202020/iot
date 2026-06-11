@@ -123,7 +123,10 @@ export function useMuseIQNavigation({
     const firstArtwork = getArtworksForRoom(roomId)[0];
     if (firstArtwork) {
       setCurrentArtworkId(firstArtwork.id);
+      return;
     }
+
+    setCurrentArtworkId("");
   };
 
   return {

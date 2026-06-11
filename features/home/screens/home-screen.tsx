@@ -26,6 +26,7 @@ export default function HomeScreen() {
     dismissSuggestion,
     immersiveExperiences,
     isArtworkNarrationPlaying,
+    isImmersiveRoom,
     isRoomDetected,
     isSuggestionVisible,
     isTorchOn,
@@ -101,6 +102,7 @@ export default function HomeScreen() {
         ) : (
           <>
             <HomeSceneState
+              isImmersiveRoom={isImmersiveRoom}
               isRoomDetected={isRoomDetected}
               isSuggestionVisible={isSuggestionVisible}
               onCloseSuggestion={dismissSuggestion}

@@ -5,6 +5,7 @@ import {
   getAllRoomImmersiveExperiences,
   getRoomImmersiveExperiences,
 } from "@/lib/room-experiences";
+import type { ArtworkMock } from "@/datos";
 import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { useIsFocused } from "@react-navigation/native";
@@ -12,6 +13,57 @@ import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
 type ActiveSheet = "explore" | "immersive" | "qr" | null;
+
+function parseHeadingDegrees(headingState?: string | null) {
+  const match = headingState?.match(/-?\d+/);
+  if (!match) {
+    return undefined;
+  }
+
+  const rawDegrees = Number(match[0]);
+  if (!Number.isFinite(rawDegrees)) {
+    return undefined;
+  }
+
+  return ((rawDegrees % 360) + 360) % 360;
+}
+
+function getPreferredColumnFromHeading(headingState?: string | null) {
+  const headingDegrees = parseHeadingDegrees(headingState);
+  if (headingDegrees === undefined) {
+    return undefined;
+  }
+
+  return headingDegrees >= 180 ? "izquierda" : "derecha";
+}
+
+function getLikelyArtworkFromRoom(
+  roomArtworks: ArtworkMock[],
+  beaconNode?: number,
+  headingState?: string | null,
+) {
+  if (roomArtworks.length === 0) {
+    return undefined;
+  }
+
+  const rowCandidates = beaconNode
+    ? roomArtworks.filter((artwork) => artwork.row === beaconNode)
+    : [];
+  const candidates = rowCandidates.length > 0 ? rowCandidates : roomArtworks;
+  const preferredColumn = getPreferredColumnFromHeading(headingState);
+
+  if (preferredColumn) {
+    const columnCandidate = candidates.find(
+      (artwork) => artwork.colName === preferredColumn,
+    );
+
+    if (columnCandidate) {
+      return columnCandidate;
+    }
+  }
+
+  return candidates[0];
+}
 
 export function useHomeScreenController() {
   const isFocused = useIsFocused();
@@ -41,7 +93,7 @@ export function useHomeScreenController() {
     movementState,
     stepCount,
     stepCountStatus,
-  } = useHomeSensors(debugModeEnabled && isFocused);
+  } = useHomeSensors(isFocused);
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [dismissedSuggestionId, setDismissedSuggestionId] = useState<string | null>(null);
   const [isSuggestionVisible, setIsSuggestionVisible] = useState(false);
@@ -64,22 +116,43 @@ export function useHomeScreenController() {
 
   const isRoomDetected = Boolean(detectedRoom);
   const activeRoom = detectedRoom ?? currentRoom;
-  const roomArtworks = activeRoom ? getArtworksForRoom(activeRoom.id) : [];
-  const suggestedArtwork = roomArtworks[0] ?? currentArtwork;
+  const roomArtworks = useMemo(
+    () => (activeRoom ? getArtworksForRoom(activeRoom.id) : []),
+    [activeRoom, getArtworksForRoom],
+  );
+  const roomImmersiveExperiences = useMemo(
+    () => (activeRoom ? getRoomImmersiveExperiences(activeRoom.id) : []),
+    [activeRoom],
+  );
+  const immersiveExperiences = activeRoom
+    ? roomImmersiveExperiences
+    : getAllRoomImmersiveExperiences();
+  const isImmersiveRoom =
+    isRoomDetected && roomArtworks.length === 0 && immersiveExperiences.length > 0;
+  const suggestedArtwork = useMemo(() => {
+    if (roomArtworks.length > 0) {
+      return getLikelyArtworkFromRoom(
+        roomArtworks,
+        dominantBeacon?.beaconNode,
+        headingState,
+      );
+    }
+
+    return isRoomDetected ? undefined : currentArtwork;
+  }, [currentArtwork, dominantBeacon?.beaconNode, headingState, isRoomDetected, roomArtworks]);
   const suggestedArtworkImageSource = getArtworkImageSource(suggestedArtwork?.image);
-  const hasNearbySuggestion = isRoomDetected && Boolean(suggestedArtwork);
+  const hasNearbySuggestion = isRoomDetected && !isImmersiveRoom && Boolean(suggestedArtwork);
   const isSuggestionDismissed =
     Boolean(suggestedArtwork?.id) && dismissedSuggestionId === suggestedArtwork?.id;
   const shouldShowSuggestionCta = hasNearbySuggestion && !isSuggestionDismissed;
   const museumName = museumProfile?.name ?? "MuseIQ";
   const roomName = activeRoom?.name ?? "Buscando sala";
   const topRoomLabel = isRoomDetected ? roomName : "Reconociendo sala";
-  const centralLabel = shouldShowSuggestionCta ? "Ver sugerencia" : "Preguntar";
-  const roomImmersiveExperiences = getRoomImmersiveExperiences(activeRoom?.id);
-  const immersiveExperiences =
-    roomImmersiveExperiences.length > 0
-      ? roomImmersiveExperiences
-      : getAllRoomImmersiveExperiences();
+  const centralLabel = isImmersiveRoom
+    ? "Entrar VR"
+    : shouldShowSuggestionCta
+      ? "Ver sugerencia"
+      : "Preguntar";
 
   useEffect(() => {
     if (!hasNearbySuggestion || !suggestedArtwork?.id || isSuggestionDismissed) {
@@ -105,6 +178,11 @@ export function useHomeScreenController() {
   };
 
   const handleCentralAction = () => {
+    if (isImmersiveRoom) {
+      setActiveSheet("immersive");
+      return;
+    }
+
     if (shouldShowSuggestionCta) {
       setIsSuggestionVisible(true);
       return;
@@ -186,7 +264,7 @@ export function useHomeScreenController() {
   };
 
   const handleMockQrScan = () => {
-    const artwork = suggestedArtwork ?? currentArtwork;
+    const artwork = suggestedArtwork ?? (isRoomDetected ? undefined : currentArtwork);
     if (!artwork) {
       return;
     }
@@ -217,6 +295,7 @@ export function useHomeScreenController() {
     debugModeEnabled,
     dismissImmersivePrompt,
     isArtworkNarrationPlaying,
+    isImmersiveRoom,
     isRoomDetected,
     isSensorPanelOpen,
     isSuggestionVisible,

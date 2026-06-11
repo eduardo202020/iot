@@ -4,6 +4,8 @@ Este checklist valida el MVP actual de MuseIQ para recorrido en museo:
 
 `Home -> Escanear QR -> Obra reconocida -> AR contextual o fallback de modelo 3D`
 
+Escenario fisico actual: `SALA_1` con 6 obras activas y QR impresos por obra. La transicion a `SALA_VR` se valida aparte con beacon S4 y lista de experiencias inmersivas.
+
 ## Validacion automatica previa
 
 Antes de probar con QR fisicos:
@@ -14,7 +16,7 @@ npm run qa:ar
 
 El comando revisa:
 
-- que cada obra del catalogo mock tenga un QR local unico;
+- que cada obra activa del catalogo MVP tenga un QR local unico;
 - que cada obra tenga un modelo 3D registrado;
 - que el visor AR use un modelo optimizado o un fallback declarado;
 - que el estado `Modelo 3D no disponible` quede reservado para obras futuras sin GLB.

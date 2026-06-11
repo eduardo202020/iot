@@ -41,6 +41,10 @@ export function useBleScanner(options: BleScannerOptions = {}) {
             return value;
         }
 
+        if (/^(SALA[-_]?VR|SVR|VR)$/.test(value)) {
+            return 'SALA_VR';
+        }
+
         const shortRoomMatch = value.match(/^S(\d+)$/);
         if (shortRoomMatch) {
             return `SALA_${shortRoomMatch[1]}`;
@@ -51,6 +55,38 @@ export function useBleScanner(options: BleScannerOptions = {}) {
 
     const parseBeaconName = useCallback((name?: string | null): ParsedBeaconIdentity | null => {
         const value = (name ?? '').trim().toUpperCase();
+        const vrMatch = value.match(/^(?:SALA[-_]?VR|SVR|VR)[-_]?M?(\d+)$/);
+        if (vrMatch) {
+            const beaconNode = Number(vrMatch[1]);
+            return {
+                roomId: 'SALA_VR',
+                beaconNode,
+                id: `SALA_VR-B${beaconNode.toString().padStart(2, '0')}`,
+            };
+        }
+
+        const explicitRoomMatch = value.match(/^SALA[-_]?(\d+)[-_]?M?(\d+)$/);
+        if (explicitRoomMatch) {
+            const roomId = `SALA_${explicitRoomMatch[1]}`;
+            const beaconNode = Number(explicitRoomMatch[2]);
+            return {
+                roomId,
+                beaconNode,
+                id: `${roomId}-B${beaconNode.toString().padStart(2, '0')}`,
+            };
+        }
+
+        const shortBeaconMatch = value.match(/^S([1-4])$/);
+        if (shortBeaconMatch) {
+            const beaconNode = Number(shortBeaconMatch[1]);
+            const roomId = beaconNode === 4 ? 'SALA_VR' : 'SALA_1';
+            return {
+                roomId,
+                beaconNode,
+                id: `${roomId}-B${beaconNode.toString().padStart(2, '0')}`,
+            };
+        }
+
         const match = value.match(/^S(\d+)-M(\d+)$/);
 
         if (!match) {

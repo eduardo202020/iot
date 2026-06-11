@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
 type HomeSceneStateProps = {
+  isImmersiveRoom: boolean;
   isRoomDetected: boolean;
   isSuggestionVisible: boolean;
   onCloseSuggestion: () => void;
@@ -17,6 +18,7 @@ type HomeSceneStateProps = {
 };
 
 export function HomeSceneState({
+  isImmersiveRoom,
   isRoomDetected,
   isSuggestionVisible,
   onCloseSuggestion,
@@ -41,6 +43,23 @@ export function HomeSceneState({
     );
   }
 
+  if (isRoomDetected && isImmersiveRoom) {
+    return (
+      <View style={styles.sceneLayer}>
+        <View style={styles.roomDetectedCard}>
+          <Ionicons color="#FFFFFF" name="glasses-outline" size={52} />
+          <View style={styles.roomDetectedCopy}>
+            <Text style={styles.roomDetectedEyebrow}>Sala inmersiva</Text>
+            <Text style={styles.roomDetectedTitle}>{roomName}</Text>
+            <Text style={styles.roomDetectedText}>
+              Esta sala activa el modo VR. Usa Entrar VR para elegir una experiencia.
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   if (isRoomDetected) {
     return (
       <View style={styles.sceneLayer}>
@@ -49,7 +68,9 @@ export function HomeSceneState({
           <View style={styles.roomDetectedCopy}>
             <Text style={styles.roomDetectedEyebrow}>Estas en</Text>
             <Text style={styles.roomDetectedTitle}>{roomName}</Text>
-            <Text style={styles.roomDetectedText}>Explora las obras de esta sala.</Text>
+            <Text style={styles.roomDetectedText}>
+              Explora las obras o escanea un QR para ver material 3D.
+            </Text>
           </View>
         </View>
       </View>

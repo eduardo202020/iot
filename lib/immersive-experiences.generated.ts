@@ -9,7 +9,7 @@ import { lugarWalkingTour, puertaMonumentalIncaWalkingTour, ushnu2WalkingTour, u
 export const immersiveRoomExperiences: RoomImmersiveExperience[] = [
   {
     id: "immersive-puerta-monumental-inca",
-    roomId: "SALA_1",
+    roomId: "SALA_VR",
     title: "Puerta Monumental Inca",
     promptTitle: "Modo inmersivo disponible",
     description: "Recorrido inmersivo por una reconstruccion 3D preparada para headset.",
@@ -20,7 +20,7 @@ export const immersiveRoomExperiences: RoomImmersiveExperience[] = [
   },
   {
     id: "immersive-sala-1",
-    roomId: "SALA_1",
+    roomId: "SALA_VR",
     title: "Sala inmersiva Sipan",
     promptTitle: "Modo inmersivo disponible",
     description: "Esta sala ofrece una reconstruccion 3D para recorrer el espacio desde dentro antes de continuar con la visita normal.",
@@ -31,7 +31,7 @@ export const immersiveRoomExperiences: RoomImmersiveExperience[] = [
   },
   {
     id: "immersive-ushnu",
-    roomId: "SALA_1",
+    roomId: "SALA_VR",
     title: "Ushnu",
     promptTitle: "Modo inmersivo disponible",
     description: "Recorrido inmersivo por una reconstruccion 3D preparada para headset.",
@@ -42,7 +42,7 @@ export const immersiveRoomExperiences: RoomImmersiveExperience[] = [
   },
   {
     id: "immersive-ushnu-2",
-    roomId: "SALA_1",
+    roomId: "SALA_VR",
     title: "Ushnu 2",
     promptTitle: "Modo inmersivo disponible",
     description: "Recorrido inmersivo por una reconstruccion 3D preparada para headset.",
