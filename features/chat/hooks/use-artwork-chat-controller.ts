@@ -62,6 +62,7 @@ export function useArtworkChatController({
     findArtworkById,
     getArtworksForRoom,
     settings,
+    stopArtworkNarration,
     voicePrompts,
   } = useMuseIQ();
 
@@ -260,6 +261,7 @@ export function useArtworkChatController({
     }
 
     setErrorMessage("");
+    await stopArtworkNarration();
     await stopSpeaking();
     setIsSpeaking(true);
     setSpeakingDisplayText(trimmedText);
@@ -313,6 +315,7 @@ export function useArtworkChatController({
       return;
     }
 
+    await stopArtworkNarration();
     await stopSpeaking();
     setErrorMessage("");
     setVoiceStatusMessage("Activando el microfono del guia...");

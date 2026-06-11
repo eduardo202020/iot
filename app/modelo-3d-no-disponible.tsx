@@ -16,7 +16,7 @@ export default function Modelo3dNoDisponibleScreen() {
   const {
     currentArtwork,
     findArtworkById,
-    repeatArtworkNarration,
+    playArtworkNarration,
     selectArtwork,
   } = useMuseIQ();
   const artwork = findArtworkById(artworkId) ?? currentArtwork;
@@ -58,7 +58,7 @@ export default function Modelo3dNoDisponibleScreen() {
     }
 
     selectArtwork(artwork.id);
-    repeatArtworkNarration();
+    playArtworkNarration(artwork.id);
   };
 
   return (

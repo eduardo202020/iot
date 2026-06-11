@@ -219,6 +219,8 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       goToNextArtwork,
       goToPreviousArtwork,
       repeatArtworkNarration,
+      playArtworkNarration: speakArtwork,
+      stopArtworkNarration,
       continueVisit,
       completeWelcome,
       setDebugModeEnabled,

@@ -65,6 +65,8 @@ export interface MuseIQContextValue {
   goToNextArtwork: () => void;
   goToPreviousArtwork: () => void;
   repeatArtworkNarration: () => void;
+  playArtworkNarration: (artworkId: string) => void;
+  stopArtworkNarration: () => Promise<void>;
   continueVisit: () => void;
   completeWelcome: () => void;
   setDebugModeEnabled: (enabled: boolean) => void;

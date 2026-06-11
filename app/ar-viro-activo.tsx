@@ -83,7 +83,7 @@ export default function ArViroActivoScreen() {
     currentArtwork,
     currentArtworkId,
     findArtworkById,
-    repeatArtworkNarration,
+    playArtworkNarration,
     selectArtwork,
   } = useMuseIQ();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -179,8 +179,8 @@ export default function ArViroActivoScreen() {
 
   const handleListen = useCallback(() => {
     selectArtwork(resolvedArtworkId);
-    repeatArtworkNarration();
-  }, [repeatArtworkNarration, resolvedArtworkId, selectArtwork]);
+    playArtworkNarration(resolvedArtworkId);
+  }, [playArtworkNarration, resolvedArtworkId, selectArtwork]);
 
   const handleScan = useCallback(() => {
     router.replace("/ar-qr" as never);

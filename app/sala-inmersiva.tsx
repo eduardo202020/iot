@@ -495,6 +495,7 @@ export default function SalaInmersivaScreen() {
               motionPermissionState === "granted" ? "tracked" : "manual"
             }-${activeModelKey}`}
             headTracking={motionPermissionState === "granted"}
+            headTrackingPaused={hasGuidedTour && !tourCanPlay}
             immersiveSubject={activeModelKey === "clava" ? "object" : "space"}
             immersiveTour={activeModelKey === "clava" ? undefined : experience.tour}
             interactive={motionPermissionState !== "granted"}

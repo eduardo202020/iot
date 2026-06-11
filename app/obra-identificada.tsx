@@ -34,7 +34,7 @@ export default function ObraIdentificadaScreen() {
   const {
     currentArtwork,
     findArtworkById,
-    repeatArtworkNarration,
+    playArtworkNarration,
     selectArtwork,
   } = useMuseIQ();
   const artwork = findArtworkById(artworkId) ?? currentArtwork;
@@ -82,7 +82,7 @@ export default function ObraIdentificadaScreen() {
 
   const playNarration = () => {
     selectArtwork(artwork.id);
-    repeatArtworkNarration();
+    playArtworkNarration(artwork.id);
   };
 
   return (

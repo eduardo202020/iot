@@ -31,6 +31,7 @@ type CabezaClavaModelViewProps = {
   externalRotationY?: number;
   externalZoom?: number;
   headTracking?: boolean;
+  headTrackingPaused?: boolean;
   introRotationRadians?: number;
   introRotationSpeed?: number;
   immersiveSubject?: ImmersiveSubject;
@@ -259,20 +260,20 @@ const MODEL_WIDTH_FILL_RATIO = 0.98;
 const MAX_MODEL_ZOOM = 3.4;
 const MIN_MODEL_ZOOM = 0.72;
 const MAX_VERTICAL_ROTATION = Math.PI * 0.32;
-const MAX_IMMERSIVE_PITCH = Math.PI * 0.47;
-const IMMERSIVE_TRACKING_PITCH_SENSITIVITY = 1.85;
+const MAX_IMMERSIVE_PITCH = Math.PI * 0.52;
+const IMMERSIVE_TRACKING_PITCH_SENSITIVITY = 2.05;
 const IMMERSIVE_TRACKING_YAW_SENSITIVITY = 1.75;
 const IMMERSIVE_TRACKING_SMOOTHING = 0.5;
 const IMMERSIVE_SENSOR_YAW_DEADZONE = 0.01;
-const IMMERSIVE_SENSOR_PITCH_DEADZONE = 0.008;
+const IMMERSIVE_SENSOR_PITCH_DEADZONE = 0.004;
 const IMMERSIVE_SENSOR_YAW_SMOOTHING = 0.24;
-const IMMERSIVE_SENSOR_PITCH_SMOOTHING = 0.28;
+const IMMERSIVE_SENSOR_PITCH_SMOOTHING = 0.38;
 const IMMERSIVE_TOUR_YAW_SMOOTHING = 0.34;
-const IMMERSIVE_TOUR_PITCH_SMOOTHING = 0.36;
+const IMMERSIVE_TOUR_PITCH_SMOOTHING = 0.42;
 const IMMERSIVE_TILT_YAW_ASSIST = 0.95;
 const IMMERSIVE_COMPASS_YAW_WEIGHT = 1;
 const IMMERSIVE_SPACE_TOUR_HEAD_YAW_WEIGHT = 1.65;
-const IMMERSIVE_SPACE_TOUR_HEAD_PITCH_WEIGHT = 1.18;
+const IMMERSIVE_SPACE_TOUR_HEAD_PITCH_WEIGHT = 1.52;
 const IMMERSIVE_SPACE_TOUR_HEAD_YAW_DIRECTION = -1;
 const IMMERSIVE_SPACE_TOUR_HEAD_PITCH_DIRECTION = -1;
 const IMMERSIVE_MIN_TOUR_FOV = 35;
@@ -378,6 +379,7 @@ export function CabezaClavaModelView({
   externalRotationY = 0,
   externalZoom = 1,
   headTracking = false,
+  headTrackingPaused = false,
   introRotationRadians = INTRO_ROTATION_RADIANS,
   introRotationSpeed = INTRO_ROTATION_SPEED,
   immersiveSubject = "space",
@@ -425,6 +427,8 @@ export function CabezaClavaModelView({
   const deviceOrientationReferenceRef = useRef<THREE.Quaternion | null>(null);
   const gyroscopeOrientationRef = useRef<THREE.Quaternion | null>(null);
   const gyroscopeLastTimestampRef = useRef<number | null>(null);
+  const headTrackingPausedRef = useRef(headTrackingPaused);
+  const previousHeadTrackingPausedRef = useRef(headTrackingPaused);
   const accelerometerReadingRef = useRef<{ x: number; y: number; z: number } | null>(null);
   const magnetometerReadingRef = useRef<{ x: number; y: number; z: number } | null>(null);
   const headTrackingSourceRef = useRef<"none" | "device-motion" | "gyroscope" | "compass">("none");
@@ -551,6 +555,38 @@ export function CabezaClavaModelView({
   useEffect(() => {
     emitDebugSnapshot(true);
   }, [emitDebugSnapshot]);
+
+  const resetHeadTrackingReference = useCallback(() => {
+    trackedYawRef.current = 0;
+    trackedPitchRef.current = 0;
+    trackedRollRef.current = 0;
+    renderedYawRef.current = 0;
+    renderedPitchRef.current = 0;
+    renderedRollRef.current = 0;
+    trackedRotationReferenceRef.current = null;
+    gyroscopeOrientationRef.current = gyroscopeOrientationRef.current
+      ? new THREE.Quaternion()
+      : null;
+    gyroscopeLastTimestampRef.current = null;
+    deviceOrientationReferenceRef.current = deviceOrientationRef.current
+      ? deviceOrientationRef.current.clone().invert()
+      : null;
+    emitDebugSnapshot(true);
+  }, [emitDebugSnapshot]);
+
+  useEffect(() => {
+    headTrackingPausedRef.current = headTrackingPaused;
+
+    if (
+      usesHeadTracking &&
+      previousHeadTrackingPausedRef.current &&
+      !headTrackingPaused
+    ) {
+      resetHeadTrackingReference();
+    }
+
+    previousHeadTrackingPausedRef.current = headTrackingPaused;
+  }, [headTrackingPaused, resetHeadTrackingReference, usesHeadTracking]);
 
   const emitPerformanceSnapshot = useCallback(() => {
     if (!ENABLE_VR_PERFORMANCE_LOGS || !isImmersive) {
@@ -782,6 +818,11 @@ export function CabezaClavaModelView({
           orientation: { pitch: number; roll: number; yaw?: number },
           updateYaw: boolean,
         ) => {
+          if (headTrackingPausedRef.current) {
+            emitDebugSnapshot();
+            return;
+          }
+
           headTrackingSourceRef.current = "compass";
           if (
             !trackedRotationReferenceRef.current ||
@@ -826,7 +867,7 @@ export function CabezaClavaModelView({
           trackedPitchRef.current = smoothTrackedValue(
             trackedPitchRef.current,
             clamp(
-              pitchDelta + rollDelta * 0.25,
+              pitchDelta,
               -MAX_IMMERSIVE_PITCH,
               MAX_IMMERSIVE_PITCH,
             ),
@@ -933,6 +974,13 @@ export function CabezaClavaModelView({
             debugErrorRef.current = null;
             lastSensorEventAtRef.current = Date.now();
 
+            if (headTrackingPausedRef.current) {
+              gyroscopeOrientationRef.current = new THREE.Quaternion();
+              gyroscopeLastTimestampRef.current = reading.timestamp;
+              emitDebugSnapshot();
+              return;
+            }
+
             const lastTimestamp = gyroscopeLastTimestampRef.current;
             gyroscopeLastTimestampRef.current = reading.timestamp;
             if (lastTimestamp === null) {
@@ -1007,6 +1055,18 @@ export function CabezaClavaModelView({
           debugLastBetaRef.current = motion.rotation?.beta ?? null;
           debugErrorRef.current = null;
           lastSensorEventAtRef.current = Date.now();
+
+          if (headTrackingPausedRef.current) {
+            if (!usesAndroidHeadTracking) {
+              deviceOrientationRef.current = getDeviceMotionQuaternion(
+                motion.rotation,
+                motion.orientation,
+              );
+            }
+            emitDebugSnapshot();
+            return;
+          }
+
           if (usesAndroidHeadTracking) {
             const alpha = motion.rotation?.alpha ?? 0;
             const beta = motion.rotation?.beta ?? 0;
@@ -1104,6 +1164,13 @@ export function CabezaClavaModelView({
                 debugErrorRef.current = null;
                 lastSensorEventAtRef.current = Date.now();
 
+                if (headTrackingPausedRef.current) {
+                  gyroscopeOrientationRef.current = new THREE.Quaternion();
+                  gyroscopeLastTimestampRef.current = reading.timestamp;
+                  emitDebugSnapshot();
+                  return;
+                }
+
                 const lastTimestamp = gyroscopeLastTimestampRef.current;
                 gyroscopeLastTimestampRef.current = reading.timestamp;
                 if (lastTimestamp === null) {
@@ -1136,6 +1203,11 @@ export function CabezaClavaModelView({
                 orientation: { pitch: number; roll: number; yaw?: number },
                 updateYaw: boolean,
               ) => {
+                if (headTrackingPausedRef.current) {
+                  emitDebugSnapshot();
+                  return;
+                }
+
                 headTrackingSourceRef.current = "compass";
                 if (
                   !trackedRotationReferenceRef.current ||
@@ -1180,7 +1252,7 @@ export function CabezaClavaModelView({
                 trackedPitchRef.current = smoothTrackedValue(
                   trackedPitchRef.current,
                   clamp(
-                    pitchDelta + rollDelta * 0.25,
+                    pitchDelta,
                     -MAX_IMMERSIVE_PITCH,
                     MAX_IMMERSIVE_PITCH,
                   ),
