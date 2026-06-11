@@ -1,4 +1,5 @@
 import { musePalette } from "@/components/museiq/theme";
+import { hasArtworkModelAsset } from "@/lib/artwork-models";
 import { getArtworkQrCode, resolveArtworkFromQrInput } from "@/lib/qr-codes";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Ionicons } from "@expo/vector-icons";
@@ -53,7 +54,9 @@ export default function CodigoManualScreen() {
 
     selectArtwork(artwork.id);
     router.replace({
-      pathname: "/obra-identificada",
+      pathname: hasArtworkModelAsset(artwork.id)
+        ? "/ar-viro-activo"
+        : "/modelo-3d-no-disponible",
       params: { artworkId: artwork.id },
     } as never);
   };
@@ -352,4 +355,3 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.99 }],
   },
 });
-

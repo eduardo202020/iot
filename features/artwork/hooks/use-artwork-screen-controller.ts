@@ -1,6 +1,7 @@
 import type { ArtworkTabKey } from "@/components/museiq/artwork/artwork-tabs";
 import { getCultureLabel } from "@/features/artwork/utils/get-culture-label";
 import { getArtworkImageSource } from "@/lib/artwork-images";
+import { hasArtworkModelAsset } from "@/lib/artwork-models";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -46,7 +47,9 @@ export function useArtworkScreenController({
 
     selectArtwork(artwork.id);
     router.push({
-      pathname: "/ar-viro-activo",
+      pathname: hasArtworkModelAsset(artwork.id)
+        ? "/ar-viro-activo"
+        : "/modelo-3d-no-disponible",
       params: { artworkId: artwork.id },
     } as never);
   };

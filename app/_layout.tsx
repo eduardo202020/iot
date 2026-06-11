@@ -16,6 +16,7 @@ export default function RootLayout() {
             <Stack.Screen name="seleccionar-museo" />
             <Stack.Screen name="preparacion-visita" />
             <Stack.Screen name="obra-identificada" />
+            <Stack.Screen name="modelo-3d-no-disponible" />
             <Stack.Screen name="qr-invalido" />
             <Stack.Screen name="codigo-manual" />
             <Stack.Screen name="sin-conexion" />

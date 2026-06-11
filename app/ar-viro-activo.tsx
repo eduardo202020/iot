@@ -1,6 +1,7 @@
 import { ArArtifactModel, arColors } from "@/components/museiq/ar-flow";
 import { musePalette } from "@/components/museiq/theme";
 import { getArArtworkExperience } from "@/lib/ar-artwork-experiences";
+import { hasArtworkModelAsset } from "@/lib/artwork-models";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -27,6 +28,12 @@ const progressActivityIcon = require("@/progress_activity.svg");
 
 type ArMvpLogPayload = Record<string, unknown>;
 type ModelStatus = "loading" | "ready" | "error";
+type ContextualActionButtonProps = {
+  iconName: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  variant?: "default" | "primary";
+};
 
 function safeStringify(payload: ArMvpLogPayload) {
   try {
@@ -36,10 +43,49 @@ function safeStringify(payload: ArMvpLogPayload) {
   }
 }
 
+function ContextualActionButton({
+  iconName,
+  label,
+  onPress,
+  variant = "default",
+}: ContextualActionButtonProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.contextualAction,
+        variant === "primary" ? styles.contextualActionPrimary : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <Ionicons
+        color={variant === "primary" ? "#03131E" : "#FFFFFF"}
+        name={iconName}
+        size={20}
+      />
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.contextualActionLabel,
+          variant === "primary" ? styles.contextualActionLabelPrimary : null,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function ArViroActivoScreen() {
   const insets = useSafeAreaInsets();
   const { artworkId } = useLocalSearchParams<{ artworkId?: string }>();
-  const { currentArtwork, currentArtworkId, findArtworkById, selectArtwork } = useMuseIQ();
+  const {
+    currentArtwork,
+    currentArtworkId,
+    findArtworkById,
+    repeatArtworkNarration,
+    selectArtwork,
+  } = useMuseIQ();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
   const [modelStatus, setModelStatus] = useState<ModelStatus>("loading");
@@ -52,6 +98,7 @@ export default function ArViroActivoScreen() {
   const fallbackArtwork = findArtworkById(DEFAULT_AR_ARTWORK_ID);
   const artwork = requestedArtwork ?? currentArtwork ?? fallbackArtwork;
   const resolvedArtworkId = artwork?.id ?? DEFAULT_AR_ARTWORK_ID;
+  const hasModelAsset = hasArtworkModelAsset(resolvedArtworkId);
   const arModel = useMemo(
     () => getArArtworkExperience(resolvedArtworkId),
     [resolvedArtworkId],
@@ -68,6 +115,17 @@ export default function ArViroActivoScreen() {
 
     selectArtwork(resolvedArtworkId);
   }, [currentArtworkId, resolvedArtworkId, selectArtwork]);
+
+  useEffect(() => {
+    if (!artwork || hasModelAsset) {
+      return;
+    }
+
+    router.replace({
+      pathname: "/modelo-3d-no-disponible",
+      params: { artworkId: artwork.id },
+    } as never);
+  }, [artwork, hasModelAsset]);
 
   useEffect(() => {
     if (!cameraPermission || cameraPermission.granted || !cameraPermission.canAskAgain) {
@@ -106,6 +164,27 @@ export default function ArViroActivoScreen() {
     setCameraReady(true);
     logArMvp("cameraReady", { mode: "camera-overlay-glb" });
   }, [logArMvp]);
+
+  const handleExplore = useCallback(() => {
+    router.replace("/home" as never);
+  }, []);
+
+  const handleAsk = useCallback(() => {
+    selectArtwork(resolvedArtworkId);
+    router.push({
+      pathname: "/pregunta-voz-modal",
+      params: { artworkId: resolvedArtworkId },
+    } as never);
+  }, [resolvedArtworkId, selectArtwork]);
+
+  const handleListen = useCallback(() => {
+    selectArtwork(resolvedArtworkId);
+    repeatArtworkNarration();
+  }, [repeatArtworkNarration, resolvedArtworkId, selectArtwork]);
+
+  const handleScan = useCallback(() => {
+    router.replace("/ar-qr" as never);
+  }, []);
 
   const canShowCamera = cameraPermission?.granted;
   const showModelLoading = Boolean(canShowCamera && modelStatus === "loading");
@@ -186,6 +265,23 @@ export default function ArViroActivoScreen() {
           <View style={styles.emptyState}>
             <Ionicons color={musePalette.primary} name="cube-outline" size={42} />
             <Text style={styles.emptyTitle}>Obra 3D no disponible</Text>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  if (!hasModelAsset) {
+    return (
+      <View style={styles.screen}>
+        <StatusBar style="light" />
+        <SafeAreaView style={styles.safeArea}>
+          <Pressable onPress={() => router.back()} style={styles.backOnly}>
+            <Ionicons color="#FFFFFF" name="arrow-back" size={28} />
+          </Pressable>
+          <View style={styles.emptyState}>
+            <Ionicons color={musePalette.primary} name="cube-outline" size={42} />
+            <Text style={styles.emptyTitle}>Preparando fallback 3D...</Text>
           </View>
         </SafeAreaView>
       </View>
@@ -295,6 +391,30 @@ export default function ArViroActivoScreen() {
 
         <View style={[styles.infoCard, { top: insets.top + 10 }]}>
           <Text numberOfLines={2} style={styles.artworkTitle}>{artwork.title}</Text>
+        </View>
+
+        <View style={[styles.contextualBar, { bottom: insets.bottom + 10 }]}>
+          <ContextualActionButton
+            iconName="compass-outline"
+            label="Explorar"
+            onPress={handleExplore}
+          />
+          <ContextualActionButton
+            iconName="volume-high-outline"
+            label="Escuchar"
+            onPress={handleListen}
+          />
+          <ContextualActionButton
+            iconName="chatbubble-ellipses-outline"
+            label="Preguntar"
+            onPress={handleAsk}
+            variant="primary"
+          />
+          <ContextualActionButton
+            iconName="qr-code-outline"
+            label="Escanear"
+            onPress={handleScan}
+          />
         </View>
       </SafeAreaView>
     </View>
@@ -446,6 +566,45 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 21,
     textAlign: "center",
+  },
+  contextualBar: {
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: "rgba(5,8,13,0.76)",
+    borderColor: "rgba(255,255,255,0.16)",
+    borderRadius: 28,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    left: 16,
+    padding: 8,
+    position: "absolute",
+    right: 16,
+    zIndex: 42,
+  },
+  contextualAction: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 20,
+    borderWidth: 1,
+    flex: 1,
+    gap: 4,
+    justifyContent: "center",
+    minHeight: 58,
+    paddingHorizontal: 4,
+  },
+  contextualActionPrimary: {
+    backgroundColor: arColors.primary,
+    borderColor: arColors.primary,
+  },
+  contextualActionLabel: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  contextualActionLabelPrimary: {
+    color: "#03131E",
   },
   pressed: {
     opacity: 0.84,

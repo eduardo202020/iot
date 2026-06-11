@@ -41,7 +41,7 @@ export default function ArQrScreen() {
   const scanLockRef = useRef(false);
   const [scannerState, setScannerState] = useState<ScannerState>("loading");
   const [isTorchOn, setIsTorchOn] = useState(false);
-  const [isOpeningAr, setIsOpeningAr] = useState(false);
+  const [isOpeningArtwork, setIsOpeningArtwork] = useState(false);
   const [invalidQrMessage, setInvalidQrMessage] = useState("");
   const [CameraView, setCameraView] = useState<ComponentType<any> | null>(null);
 
@@ -55,14 +55,19 @@ export default function ArQrScreen() {
     );
   }, [artworks, currentArtwork]);
 
-  const openArtworkInAr = useCallback(
+  const openScannedArtworkExperience = useCallback(
     (artworkId: string) => {
+      const hasModel = hasArtworkModelAsset(artworkId);
+      const targetRoute = hasModel ? "/ar-viro-activo" : "/modelo-3d-no-disponible";
+
       console.log("[MuseIQ][AR_QR]", JSON.stringify({
         artworkId,
-        event: "safeOpenArStart",
+        event: "safeOpenArtworkExperienceStart",
+        hasModel,
+        targetRoute,
       }));
       selectArtwork(artworkId);
-      setIsOpeningAr(true);
+      setIsOpeningArtwork(true);
       setIsTorchOn(false);
       setInvalidQrMessage("");
       setScannerState("loading");
@@ -71,14 +76,16 @@ export default function ArQrScreen() {
         clearTimeout(navigationTimeoutRef.current);
       }
 
-      // Give expo-camera one frame to unmount before the AR screen mounts its own camera + GLView.
+      // Give expo-camera one frame to unmount before moving to the contextual artwork experience.
       navigationTimeoutRef.current = setTimeout(() => {
         console.log("[MuseIQ][AR_QR]", JSON.stringify({
           artworkId,
-          event: "safeOpenArNavigate",
+          event: "safeOpenArtworkExperienceNavigate",
+          hasModel,
+          targetRoute,
         }));
         router.replace({
-          pathname: "/ar-viro-activo",
+          pathname: targetRoute,
           params: { artworkId },
         } as never);
       }, 180);
@@ -153,7 +160,7 @@ export default function ArQrScreen() {
       const artwork = resolveArtworkFromQrInput(data, artworks);
 
       if (artwork) {
-        openArtworkInAr(artwork.id);
+        openScannedArtworkExperience(artwork.id);
         return;
       }
 
@@ -163,12 +170,12 @@ export default function ArQrScreen() {
         setInvalidQrMessage("");
       }, 1600);
     },
-    [artworks, openArtworkInAr],
+    [artworks, openScannedArtworkExperience],
   );
 
   const museumName = museumProfile?.name ?? "MuseIQ";
   const roomName = currentRoom?.name ?? "Sala de prueba";
-  const showCamera = !isOpeningAr && scannerState === "ready" && CameraView;
+  const showCamera = !isOpeningArtwork && scannerState === "ready" && CameraView;
 
   return (
     <View style={styles.screen}>
@@ -188,8 +195,8 @@ export default function ArQrScreen() {
           {scannerState === "loading" ? (
             <ActivityIndicator color={arColors.primary} size="large" />
           ) : null}
-          {isOpeningAr ? (
-            <Text style={styles.loadingText}>Abriendo AR...</Text>
+          {isOpeningArtwork ? (
+            <Text style={styles.loadingText}>Preparando experiencia...</Text>
           ) : null}
         </View>
       )}
@@ -209,7 +216,7 @@ export default function ArQrScreen() {
         </Pressable>
 
         <View style={styles.header}>
-          <Text style={styles.kicker}>MVP AR</Text>
+          <Text style={styles.kicker}>RECORRIDO MUSEIQ</Text>
           <Text style={styles.title}>Escanea el QR de la obra</Text>
           <Text style={styles.subtitle}>
             {museumName} · {roomName}
@@ -231,7 +238,7 @@ export default function ArQrScreen() {
           </View>
         ) : null}
 
-        {scannerState !== "ready" && !isOpeningAr ? (
+        {scannerState !== "ready" && !isOpeningArtwork ? (
           <View style={styles.permissionCard}>
             <Ionicons
               color={arColors.primary}
@@ -276,11 +283,11 @@ export default function ArQrScreen() {
               <Ionicons color="#FFFFFF" name="flashlight-outline" size={22} />
             </Pressable>
             <Text style={styles.bottomHint}>
-              Apunta al QR. En desarrollo puedes abrir una obra directamente.
+              Apunta al QR. Si la obra tiene modelo 3D, MuseIQ abrirá su experiencia contextual.
             </Text>
           </View>
 
-          <Text style={styles.devArtworkLabel}>Obras AR disponibles</Text>
+          <Text style={styles.devArtworkLabel}>Obras disponibles</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -289,7 +296,7 @@ export default function ArQrScreen() {
             {developmentArtworks.map((artwork) => (
               <Pressable
                 key={artwork.id}
-                onPress={() => openArtworkInAr(artwork.id)}
+                onPress={() => openScannedArtworkExperience(artwork.id)}
                 style={({ pressed }) => [styles.devArtworkButton, pressed ? styles.pressed : null]}
               >
                 <Text numberOfLines={1} style={styles.devArtworkTitle}>

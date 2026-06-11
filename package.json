@@ -12,7 +12,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "qa:ar": "node ./scripts/validate-ar-catalog.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

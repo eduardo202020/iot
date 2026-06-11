@@ -7,11 +7,13 @@ import {
 } from "@/components/museiq/ar-flow";
 import { musePalette } from "@/components/museiq/theme";
 import { getArtworkImageSource } from "@/lib/artwork-images";
+import { hasArtworkModelAsset } from "@/lib/artwork-models";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -37,6 +39,12 @@ export default function ObraIdentificadaScreen() {
   } = useMuseIQ();
   const artwork = findArtworkById(artworkId) ?? currentArtwork;
 
+  useEffect(() => {
+    if (artwork?.id) {
+      selectArtwork(artwork.id);
+    }
+  }, [artwork?.id, selectArtwork]);
+
   if (!artwork) {
     return (
       <View style={styles.screen}>
@@ -59,7 +67,22 @@ export default function ObraIdentificadaScreen() {
 
   const openArLoading = () => {
     selectArtwork(artwork.id);
-    router.push({ pathname: "/ar-viro-activo", params: { artworkId: artwork.id } } as never);
+    router.push({
+      pathname: hasArtworkModelAsset(artwork.id)
+        ? "/ar-viro-activo"
+        : "/modelo-3d-no-disponible",
+      params: { artworkId: artwork.id },
+    } as never);
+  };
+
+  const openQuestion = () => {
+    selectArtwork(artwork.id);
+    router.push({ pathname: "/pregunta-voz-modal", params: { artworkId: artwork.id } } as never);
+  };
+
+  const playNarration = () => {
+    selectArtwork(artwork.id);
+    repeatArtworkNarration();
   };
 
   return (
@@ -104,6 +127,22 @@ export default function ObraIdentificadaScreen() {
           </View>
 
           <View style={styles.actionRow}>
+            <View style={styles.secondaryActionsRow}>
+              <Pressable
+                onPress={playNarration}
+                style={({ pressed }) => [styles.secondaryButton, pressed ? styles.pressed : null]}
+              >
+                <Ionicons color="#FFFFFF" name="volume-high-outline" size={19} />
+                <Text style={styles.secondaryButtonText}>Escuchar</Text>
+              </Pressable>
+              <Pressable
+                onPress={openQuestion}
+                style={({ pressed }) => [styles.secondaryButton, pressed ? styles.pressed : null]}
+              >
+                <Ionicons color="#FFFFFF" name="chatbubble-ellipses-outline" size={19} />
+                <Text style={styles.secondaryButtonText}>Preguntar</Text>
+              </Pressable>
+            </View>
             <Pressable
               onPress={openArLoading}
               style={({ pressed }) => [styles.primaryButton, pressed ? styles.pressed : null]}
@@ -114,9 +153,9 @@ export default function ObraIdentificadaScreen() {
         </View>
 
         <ArSideRail
-          showChat={false}
-          onAudio={repeatArtworkNarration}
-          onChat={() => undefined}
+          chatLabel="Preguntar"
+          onAudio={playNarration}
+          onChat={openQuestion}
           style={[styles.sideRail, { top: insets.top + 10 }]}
         />
 
@@ -206,8 +245,31 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   actionRow: {
+    gap: 12,
     marginTop: 16,
     width: "100%",
+  },
+  secondaryActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  secondaryButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(255,255,255,0.18)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  secondaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
   },
   primaryButton: {
     alignItems: "center",
