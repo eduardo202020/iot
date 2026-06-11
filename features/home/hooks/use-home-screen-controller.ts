@@ -7,6 +7,7 @@ import {
 } from "@/lib/room-experiences";
 import type { ArtworkMock } from "@/datos";
 import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
+import type { BeaconData } from "@/types/beacon";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { useIsFocused } from "@react-navigation/native";
 import { router } from "expo-router";
@@ -39,15 +40,22 @@ function getPreferredColumnFromHeading(headingState?: string | null) {
 
 function getLikelyArtworkFromRoom(
   roomArtworks: ArtworkMock[],
-  beaconNode?: number,
+  beacon?: BeaconData,
   headingState?: string | null,
 ) {
   if (roomArtworks.length === 0) {
     return undefined;
   }
 
-  const rowCandidates = beaconNode
-    ? roomArtworks.filter((artwork) => artwork.row === beaconNode)
+  if (beacon?.artworkId) {
+    const exactArtwork = roomArtworks.find((artwork) => artwork.id === beacon.artworkId);
+    if (exactArtwork) {
+      return exactArtwork;
+    }
+  }
+
+  const rowCandidates = beacon?.beaconNode
+    ? roomArtworks.filter((artwork) => artwork.row === beacon.beaconNode)
     : [];
   const candidates = rowCandidates.length > 0 ? rowCandidates : roomArtworks;
   const preferredColumn = getPreferredColumnFromHeading(headingState);
@@ -133,13 +141,13 @@ export function useHomeScreenController() {
     if (roomArtworks.length > 0) {
       return getLikelyArtworkFromRoom(
         roomArtworks,
-        dominantBeacon?.beaconNode,
+        dominantBeacon,
         headingState,
       );
     }
 
     return isRoomDetected ? undefined : currentArtwork;
-  }, [currentArtwork, dominantBeacon?.beaconNode, headingState, isRoomDetected, roomArtworks]);
+  }, [currentArtwork, dominantBeacon, headingState, isRoomDetected, roomArtworks]);
   const suggestedArtworkImageSource = getArtworkImageSource(suggestedArtwork?.image);
   const hasNearbySuggestion = isRoomDetected && !isImmersiveRoom && Boolean(suggestedArtwork);
   const isSuggestionDismissed =

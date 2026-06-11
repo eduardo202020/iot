@@ -53,6 +53,10 @@ function getArtworkCodeCandidates(artwork: ArtworkMock) {
     `MUSEIQ:${artwork.id}`,
     `QR-${artwork.id}`,
     orderCode,
+    `${orderCode}-A`,
+    `${orderCode}-B`,
+    `${orderCode}-1`,
+    `${orderCode}-2`,
     rowColCode,
     artwork.title,
   ].filter(Boolean);
@@ -73,4 +77,3 @@ export function resolveArtworkFromQrInput(
     ),
   );
 }
-

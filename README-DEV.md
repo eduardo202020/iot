@@ -239,6 +239,7 @@ El scanner soporta dos formatos:
 
 1. `serviceData` con el UUID `0000A00A-0000-1000-8000-00805F9B34FB`
 2. fallback temporal por nombre BLE para pruebas
+3. bridge HTTP de desarrollo desde `iot-museiq/dev_location_bridge.py`
 
 Payload esperado en `serviceData`:
 
@@ -248,10 +249,42 @@ Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) +
 
 Para el MVP, los `Room ID` esperados son `SALA_1` y `SALA_VR`. En `SALA_1`, `Beacon Node` 1, 2 y 3 representan las tres franjas de la sala normal. En `SALA_VR`, `Beacon Node` 4 representa la zona que habilita modo inmersivo.
 
+### Simulador BLE desde iot-museiq
+
+Para probar el recorrido sin ESP32 físicos:
+
+```bash
+cd /home/eduardo/proyectos/iot/museiq/iot-museiq
+python dev_location_bridge.py --host 0.0.0.0 --port 8787
+```
+
+Luego inicia la app:
+
+```bash
+cd /home/eduardo/proyectos/iot/museiq/museiqApp
+npx expo start --dev-client --host lan -c
+```
+
+La app intenta leer automáticamente `http://<IP_DE_METRO>:8787/state`. Si necesitas fijar la URL:
+
+```bash
+EXPO_PUBLIC_MUSEIQ_BLE_SIM_URL=http://<IP_PC>:8787 npx expo start --dev-client --host lan -c
+```
+
+Comandos del bridge:
+
+- `1..6`: simula `SALA_1` con una zona/obra exacta.
+- `vr` o `s4`: simula `SALA_VR` y habilita modo inmersivo.
+- `clear`: pausa la ubicación simulada y deja que BLE real vuelva a dominar.
+- `status`: imprime el estado JSON que consume la app.
+
+Cuando el bridge está activo, su beacon simulado domina sobre el scanner BLE real. Si el bridge se apaga o queda en `clear`, la app vuelve al comportamiento BLE normal.
+
 ## Features actuales
 
 - detección de beacon dominante por sala
 - prediccion local de obra probable en `SALA_1` usando beacon S1-S3, orientacion y movimiento
+- simulador HTTP de ubicación desde `iot-museiq` para probar Sala 1 y Sala VR sin ESP32 físicos
 - navegación por obras del recorrido
 - chat contextual por texto
 - dictado por voz

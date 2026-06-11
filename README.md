@@ -64,6 +64,7 @@ El caso de prueba actual representa un museo piloto con dos zonas:
 - Cada obra tiene QR fisicos cercanos; el QR confirma la obra exacta y abre su GLB como material 3D complementario.
 - `SALA_VR`: sala inmersiva detectada por beacon `S4`, sin obras fisicas activas en la app.
 - `SALA_VR`: al detectarse, Home cambia el CTA central a `Entrar VR` y muestra la lista de experiencias inmersivas disponibles.
+- Durante desarrollo, `iot-museiq/dev_location_bridge.py` puede simular estas ubicaciones desde terminal para probar el recorrido sin ESP32 fisicos.
 
 ## Flujo implementado
 
