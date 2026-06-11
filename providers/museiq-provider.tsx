@@ -61,6 +61,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
   const [favoriteArtworkIds, setFavoriteArtworkIds] = useState<string[]>([]);
   const [hasCompletedWelcome, setHasCompletedWelcome] = useState(false);
   const [debugModeEnabled, setDebugModeEnabledState] = useState(false);
+  const [homeQuickActionsVisible, setHomeQuickActionsVisibleState] = useState(true);
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary>(
     defaultAnalyticsSummary
   );
@@ -131,6 +132,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     setCurrentZoneLabel,
     setDebugModeEnabledState,
     setFavoriteArtworkIds,
+    setHomeQuickActionsVisible: setHomeQuickActionsVisibleState,
     setHasCompletedWelcome,
     setHelpFaq,
     setIsDatabaseReady,
@@ -170,6 +172,13 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
     );
   };
 
+  const setHomeQuickActionsVisible = (visible: boolean) => {
+    setHomeQuickActionsVisibleState(visible);
+    setVisitorPreference("home_quick_actions_visible", visible ? "true" : "false").catch(
+      () => undefined,
+    );
+  };
+
   const updateSettings = (patch: Partial<SettingsState>) => {
     setSettings((previous) => ({ ...previous, ...patch }));
   };
@@ -193,6 +202,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       routeProgressLabel,
       hasCompletedWelcome,
       debugModeEnabled,
+      homeQuickActionsVisible,
       permissionsAccepted,
       permissions,
       settings,
@@ -212,6 +222,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       continueVisit,
       completeWelcome,
       setDebugModeEnabled,
+      setHomeQuickActionsVisible,
       toggleFavoriteArtwork,
       updateSettings,
       setCurrentRoomById,
@@ -235,6 +246,7 @@ export function MuseIQProvider({ children }: PropsWithChildren) {
       favoriteArtworkIds,
       hasCompletedWelcome,
       helpFaq,
+      homeQuickActionsVisible,
       isArtworkNarrationPlaying,
       isDatabaseReady,
       museumProfile,

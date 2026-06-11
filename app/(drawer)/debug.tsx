@@ -14,9 +14,11 @@ export default function DebugScreen() {
   const {
     currentArtwork,
     debugModeEnabled,
+    homeQuickActionsVisible,
     refreshAnalyticsSummary,
     resetVisitorExperience,
     setDebugModeEnabled,
+    setHomeQuickActionsVisible,
   } = useMuseIQ();
   const { beacons, error, isScanning, startScanning, stopScanning } = useBleScanner();
   const {
@@ -123,6 +125,11 @@ export default function DebugScreen() {
               label="Modo desarrollador"
               onToggle={() => setDebugModeEnabled(!debugModeEnabled)}
               value={debugModeEnabled}
+            />
+            <ToolRow
+              label="Mostrar botones"
+              onToggle={() => setHomeQuickActionsVisible(!homeQuickActionsVisible)}
+              value={homeQuickActionsVisible}
             />
             <DevNavRow
               icon="phone-portrait-outline"

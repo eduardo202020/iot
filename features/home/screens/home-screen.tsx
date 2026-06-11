@@ -53,6 +53,7 @@ export default function HomeScreen() {
     handleExploreOtherSuggestions,
     handleMockQrScan,
     handleViewSuggestedAr,
+    homeQuickActionsVisible,
   } = useHomeScreenController();
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function HomeScreen() {
       <View style={styles.cameraShade} />
       <SafeAreaView style={styles.safeArea}>
         <HomeTopHud
+          homeQuickActionsVisible={homeQuickActionsVisible}
           isArtworkNarrationPlaying={isArtworkNarrationPlaying}
           onOpenArMvp={openArMvp}
           onOpenImmersiveTest={openImmersivePrompt}

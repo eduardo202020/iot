@@ -29,7 +29,12 @@ export function HomeSceneState({
   suggestedArtwork,
   suggestedArtworkImageSource,
 }: HomeSceneStateProps) {
-  if (isSuggestionVisible && shouldShowSuggestionCta && suggestedArtwork) {
+  if (
+    !isImmersiveRoom &&
+    isSuggestionVisible &&
+    shouldShowSuggestionCta &&
+    suggestedArtwork
+  ) {
     return (
       <View style={styles.sceneLayer}>
         <BleSuggestionCard

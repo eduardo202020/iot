@@ -163,12 +163,9 @@ export function useSimulatedBleLocation() {
       return null;
     }
 
-    const updatedAt = snapshot.updatedAt ?? Date.now();
-    if (Date.now() - updatedAt > STALE_AFTER_MS) {
-      return null;
-    }
-
-    return toBeaconData(snapshot.beacon, updatedAt);
+    // La posicion simulada representa una ubicacion persistente hasta que la
+    // terminal envie otra zona o "clear"; no debe expirar por tiempo.
+    return toBeaconData(snapshot.beacon, Date.now());
   }, [snapshot]);
 
   return {

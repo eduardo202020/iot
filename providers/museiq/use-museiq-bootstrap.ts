@@ -24,6 +24,7 @@ type UseMuseIQBootstrapParams = {
   setCurrentZoneLabel: Dispatch<SetStateAction<string>>;
   setDebugModeEnabledState: Dispatch<SetStateAction<boolean>>;
   setFavoriteArtworkIds: Dispatch<SetStateAction<string[]>>;
+  setHomeQuickActionsVisible: Dispatch<SetStateAction<boolean>>;
   setHasCompletedWelcome: Dispatch<SetStateAction<boolean>>;
   setHelpFaq: Dispatch<SetStateAction<Snapshot["helpFaq"]>>;
   setIsDatabaseReady: Dispatch<SetStateAction<boolean>>;
@@ -47,6 +48,7 @@ export function useMuseIQBootstrap({
   setCurrentZoneLabel,
   setDebugModeEnabledState,
   setFavoriteArtworkIds,
+  setHomeQuickActionsVisible,
   setHasCompletedWelcome,
   setHelpFaq,
   setIsDatabaseReady,
@@ -78,13 +80,20 @@ export function useMuseIQBootstrap({
       setVoicePrompts(snapshot.voicePrompts);
       setPermissionCatalog(snapshot.permissionCatalog);
 
-      const [welcomePreference, debugPreference, favoritePreference] = await Promise.all([
+      const [
+        welcomePreference,
+        debugPreference,
+        quickActionsPreference,
+        favoritePreference,
+      ] = await Promise.all([
         getVisitorPreference("welcome_completed"),
         getVisitorPreference("debug_mode_enabled"),
+        getVisitorPreference("home_quick_actions_visible"),
         getVisitorPreference("favorite_artwork_ids"),
       ]);
       setHasCompletedWelcome(welcomePreference === "true");
       setDebugModeEnabledState(debugPreference === "true");
+      setHomeQuickActionsVisible(quickActionsPreference !== "false");
       setFavoriteArtworkIds(parseFavoriteArtworkIds(favoritePreference));
 
       const { initialArtwork, initialRoom } = getInitialMuseumSelection({
@@ -126,6 +135,7 @@ export function useMuseIQBootstrap({
     setCurrentZoneLabel,
     setDebugModeEnabledState,
     setFavoriteArtworkIds,
+    setHomeQuickActionsVisible,
     setHasCompletedWelcome,
     setHelpFaq,
     setIsDatabaseReady,
@@ -150,6 +160,7 @@ export function useMuseIQBootstrap({
 
     setHasCompletedWelcome(false);
     setDebugModeEnabledState(false);
+    setHomeQuickActionsVisible(true);
     setPermissionsAccepted(false);
     setPermissions(defaultPermissionStatuses);
     setSettings(defaultSettings);

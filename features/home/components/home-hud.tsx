@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 type HomeTopHudProps = {
+  homeQuickActionsVisible: boolean;
   isArtworkNarrationPlaying: boolean;
   onOpenArMvp: () => void;
   onOpenImmersiveTest: () => void;
@@ -39,6 +40,7 @@ function HudActionButton({ icon, label, onPress, style }: HudActionButtonProps) 
 }
 
 export function HomeTopHud({
+  homeQuickActionsVisible,
   isArtworkNarrationPlaying,
   onOpenArMvp,
   onOpenImmersiveTest,
@@ -61,46 +63,50 @@ export function HomeTopHud({
         <Ionicons color="#FFFFFF" name="menu" size={38} />
       </Pressable>
 
-      <View style={styles.topHudRightStack}>
-        <Pressable
-          onPress={onRepeatArtworkNarration}
-          style={({ pressed }) => [
-            styles.sideButton,
-            isArtworkNarrationPlaying ? styles.sideButtonActive : null,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Ionicons
-            color="#FFFFFF"
-            name={isArtworkNarrationPlaying ? "volume-mute-outline" : "mic-outline"}
-            size={26}
-          />
-          <Text style={styles.sideButtonLabel}>Audio</Text>
-        </Pressable>
+      {homeQuickActionsVisible ? (
+        <View style={styles.topHudRightStack}>
+          <Pressable
+            onPress={onRepeatArtworkNarration}
+            style={({ pressed }) => [
+              styles.sideButton,
+              isArtworkNarrationPlaying ? styles.sideButtonActive : null,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Ionicons
+              color="#FFFFFF"
+              name={isArtworkNarrationPlaying ? "volume-mute-outline" : "mic-outline"}
+              size={26}
+            />
+            <Text style={styles.sideButtonLabel}>Audio</Text>
+          </Pressable>
 
-        <Pressable
-          onPress={onOpenImmersiveTest}
-          style={({ pressed }) => [
-            styles.sideButton,
-            styles.immersiveTestButton,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Ionicons color="#FFFFFF" name="glasses-outline" size={24} />
-        </Pressable>
+          <Pressable
+            onPress={onOpenImmersiveTest}
+            style={({ pressed }) => [
+              styles.sideButton,
+              styles.immersiveTestButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Ionicons color="#FFFFFF" name="glasses-outline" size={24} />
+          </Pressable>
 
-        <Pressable
-          onPress={onOpenArMvp}
-          style={({ pressed }) => [
-            styles.sideButton,
-            styles.arTestButton,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Ionicons color="#FFFFFF" name="cube-outline" size={23} />
-          <Text style={styles.compactSideButtonLabel}>AR</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            onPress={onOpenArMvp}
+            style={({ pressed }) => [
+              styles.sideButton,
+              styles.arTestButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Ionicons color="#FFFFFF" name="cube-outline" size={23} />
+            <Text style={styles.compactSideButtonLabel}>AR</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.topHudRightPlaceholder} />
+      )}
     </View>
   );
 }
@@ -169,6 +175,9 @@ const styles = StyleSheet.create({
   topHudRightStack: {
     alignItems: "center",
     gap: 10,
+  },
+  topHudRightPlaceholder: {
+    width: 66,
   },
   topHudRoomLabel: {
     color: "#FFFFFF",

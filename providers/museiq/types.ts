@@ -45,6 +45,7 @@ export interface MuseIQContextValue {
   routeProgressLabel: string;
   hasCompletedWelcome: boolean;
   debugModeEnabled: boolean;
+  homeQuickActionsVisible: boolean;
   permissionsAccepted: boolean;
   permissions: Record<
     PermissionKey,
@@ -67,6 +68,7 @@ export interface MuseIQContextValue {
   continueVisit: () => void;
   completeWelcome: () => void;
   setDebugModeEnabled: (enabled: boolean) => void;
+  setHomeQuickActionsVisible: (visible: boolean) => void;
   toggleFavoriteArtwork: (artworkId: string) => void;
   updateSettings: (patch: Partial<SettingsState>) => void;
   setCurrentRoomById: (roomId: string) => void;

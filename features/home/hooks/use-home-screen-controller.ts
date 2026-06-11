@@ -5,7 +5,11 @@ import {
   getAllRoomImmersiveExperiences,
   getRoomImmersiveExperiences,
 } from "@/lib/room-experiences";
-import type { ArtworkMock } from "@/datos";
+import {
+  MVP_IMMERSIVE_ROOM_ID,
+  museumMock,
+  type ArtworkMock,
+} from "@/datos";
 import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
 import type { BeaconData } from "@/types/beacon";
 import { useMuseIQ } from "@/providers/museiq-provider";
@@ -14,6 +18,10 @@ import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
 type ActiveSheet = "explore" | "immersive" | "qr" | null;
+
+const fallbackImmersiveRoom = museumMock.rooms.find(
+  (room) => room.id === MVP_IMMERSIVE_ROOM_ID,
+);
 
 function parseHeadingDegrees(headingState?: string | null) {
   const match = headingState?.match(/-?\d+/);
@@ -82,6 +90,7 @@ export function useHomeScreenController() {
     debugModeEnabled,
     findRoomById,
     getArtworksForRoom,
+    homeQuickActionsVisible,
     isArtworkNarrationPlaying,
     museumProfile,
     repeatArtworkNarration,
@@ -103,6 +112,7 @@ export function useHomeScreenController() {
     stepCountStatus,
   } = useHomeSensors(isFocused);
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
+  const [dismissedImmersiveRoomId, setDismissedImmersiveRoomId] = useState<string | null>(null);
   const [dismissedSuggestionId, setDismissedSuggestionId] = useState<string | null>(null);
   const [isSuggestionVisible, setIsSuggestionVisible] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
@@ -119,7 +129,16 @@ export function useHomeScreenController() {
       return null;
     }
 
-    return findRoomById(dominantBeacon.roomId) ?? currentRoom ?? null;
+    const providerRoom = findRoomById(dominantBeacon.roomId);
+    if (providerRoom) {
+      return providerRoom;
+    }
+
+    if (dominantBeacon.roomId === MVP_IMMERSIVE_ROOM_ID) {
+      return fallbackImmersiveRoom ?? null;
+    }
+
+    return currentRoom ?? null;
   }, [currentRoom, dominantBeacon?.roomId, findRoomById]);
 
   const isRoomDetected = Boolean(detectedRoom);
@@ -136,7 +155,10 @@ export function useHomeScreenController() {
     ? roomImmersiveExperiences
     : getAllRoomImmersiveExperiences();
   const isImmersiveRoom =
-    isRoomDetected && roomArtworks.length === 0 && immersiveExperiences.length > 0;
+    isRoomDetected &&
+    Boolean(activeRoom) &&
+    (activeRoom?.id === MVP_IMMERSIVE_ROOM_ID ||
+      (roomArtworks.length === 0 && immersiveExperiences.length > 0));
   const suggestedArtwork = useMemo(() => {
     if (roomArtworks.length > 0) {
       return getLikelyArtworkFromRoom(
@@ -155,12 +177,37 @@ export function useHomeScreenController() {
   const shouldShowSuggestionCta = hasNearbySuggestion && !isSuggestionDismissed;
   const museumName = museumProfile?.name ?? "MuseIQ";
   const roomName = activeRoom?.name ?? "Buscando sala";
+  const activeRoomId = activeRoom?.id;
   const topRoomLabel = isRoomDetected ? roomName : "Reconociendo sala";
   const centralLabel = isImmersiveRoom
     ? "Entrar VR"
     : shouldShowSuggestionCta
       ? "Ver sugerencia"
       : "Preguntar";
+
+  useEffect(() => {
+    console.log("[MuseIQ][HOME_FLOW]", JSON.stringify({
+      activeRoomId,
+      activeSheet,
+      beaconNode: dominantBeacon?.beaconNode ?? null,
+      beaconRoomId: dominantBeacon?.roomId ?? null,
+      beaconSource: dominantBeacon?.source ?? "ble",
+      isImmersiveRoom,
+      isRoomDetected,
+      shouldShowSuggestionCta,
+      suggestedArtworkId: suggestedArtwork?.id ?? null,
+    }));
+  }, [
+    activeRoomId,
+    activeSheet,
+    dominantBeacon?.beaconNode,
+    dominantBeacon?.roomId,
+    dominantBeacon?.source,
+    isImmersiveRoom,
+    isRoomDetected,
+    shouldShowSuggestionCta,
+    suggestedArtwork?.id,
+  ]);
 
   useEffect(() => {
     if (!hasNearbySuggestion || !suggestedArtwork?.id || isSuggestionDismissed) {
@@ -170,6 +217,34 @@ export function useHomeScreenController() {
 
     setIsSuggestionVisible(true);
   }, [hasNearbySuggestion, isSuggestionDismissed, suggestedArtwork?.id]);
+
+  useEffect(() => {
+    if (!isRoomDetected || !activeRoomId) {
+      return;
+    }
+
+    if (!isImmersiveRoom) {
+      setActiveSheet((value) => (value === "immersive" ? null : value));
+      setDismissedImmersiveRoomId(null);
+      return;
+    }
+
+    if (
+      immersiveExperiences.length === 0 ||
+      dismissedImmersiveRoomId === activeRoomId
+    ) {
+      return;
+    }
+
+    setIsSuggestionVisible(false);
+    setActiveSheet("immersive");
+  }, [
+    activeRoomId,
+    dismissedImmersiveRoomId,
+    immersiveExperiences.length,
+    isImmersiveRoom,
+    isRoomDetected,
+  ]);
 
   const openCentralQuestion = () => {
     router.push({
@@ -236,6 +311,10 @@ export function useHomeScreenController() {
   };
 
   const dismissImmersivePrompt = () => {
+    if (isImmersiveRoom && activeRoomId) {
+      setDismissedImmersiveRoomId(activeRoomId);
+    }
+
     setActiveSheet(null);
   };
 
@@ -244,6 +323,7 @@ export function useHomeScreenController() {
       return;
     }
 
+    setDismissedImmersiveRoomId(null);
     setActiveSheet("immersive");
   };
 
@@ -301,6 +381,7 @@ export function useHomeScreenController() {
     centralLabel,
     currentArtworkId,
     debugModeEnabled,
+    homeQuickActionsVisible,
     dismissImmersivePrompt,
     isArtworkNarrationPlaying,
     isImmersiveRoom,
