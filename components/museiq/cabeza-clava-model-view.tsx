@@ -1,13 +1,77 @@
 import { DEFAULT_ARTWORK_MODEL, getArtworkModelAssetForArtwork } from "@/lib/artwork-models";
-import terrainDiffuseTexture from "@/assets/textures/terrain/rocky_terrain_02_diff_1k.jpg";
-import terrainNormalTexture from "@/assets/textures/terrain/rocky_terrain_02_nor_gl_1k.png";
-import terrainRoughnessTexture from "@/assets/textures/terrain/rocky_terrain_02_rough_1k.png";
 import {
-  estimateImmersiveNarrationDuration,
-  type ImmersiveTourDefinition,
-  type ImmersiveTourNarration,
-  type ImmersiveTourVector,
-} from "@/lib/immersive-tours";
+  ATTRIBUTE_MAP,
+  COMPONENT_BYTE_SIZE,
+  ENABLE_3D_TERMINAL_LOGS,
+  ENABLE_VR_PERFORMANCE_LOGS,
+  IMMERSIVE_COMPASS_YAW_WEIGHT,
+  IMMERSIVE_MAX_TOUR_FOV,
+  IMMERSIVE_MIN_TOUR_FOV,
+  IMMERSIVE_SENSOR_PITCH_DEADZONE,
+  IMMERSIVE_SENSOR_PITCH_SMOOTHING,
+  IMMERSIVE_SENSOR_YAW_DEADZONE,
+  IMMERSIVE_SENSOR_YAW_SMOOTHING,
+  IMMERSIVE_SPACE_TOUR_HEAD_PITCH_DIRECTION,
+  IMMERSIVE_SPACE_TOUR_HEAD_PITCH_WEIGHT,
+  IMMERSIVE_SPACE_TOUR_HEAD_YAW_DIRECTION,
+  IMMERSIVE_SPACE_TOUR_HEAD_YAW_WEIGHT,
+  IMMERSIVE_STEREO_TARGET_FRAME_MS,
+  IMMERSIVE_TERRAIN_EXTRA_RADIUS,
+  IMMERSIVE_TERRAIN_MAX_SIZE,
+  IMMERSIVE_TERRAIN_MIN_SIZE,
+  IMMERSIVE_TERRAIN_REPEAT_METERS,
+  IMMERSIVE_TERRAIN_Y_LIFT_MIN,
+  IMMERSIVE_TERRAIN_Y_LIFT_RATIO,
+  IMMERSIVE_TEXTURE_MAX_ANISOTROPY,
+  IMMERSIVE_TILT_YAW_ASSIST,
+  IMMERSIVE_TOUR_PITCH_SMOOTHING,
+  IMMERSIVE_TOUR_YAW_SMOOTHING,
+  IMMERSIVE_TRACKING_PITCH_SENSITIVITY,
+  IMMERSIVE_TRACKING_SMOOTHING,
+  IMMERSIVE_TRACKING_YAW_SENSITIVITY,
+  INTRO_ROTATION_RADIANS,
+  INTRO_ROTATION_SPEED,
+  ITEM_SIZE,
+  MAX_IMMERSIVE_PITCH,
+  MAX_MODEL_ZOOM,
+  MAX_VERTICAL_ROTATION,
+  MIN_MODEL_ZOOM,
+  MODEL_WIDTH_FILL_RATIO,
+  VR_EYE_SEPARATION,
+  VR_PERFORMANCE_LOG_INTERVAL_MS,
+  deviceOrientationAxis,
+  deviceOrientationEuler,
+  deviceOrientationScreenQuaternion,
+  deviceOrientationTransformQuaternion,
+  embeddedTextureFileCache,
+  identityQuaternion,
+  immersiveTerrainTextures,
+  preparedModelCache,
+  preparedModelTemplateCache,
+  skyTextureAssetCache,
+  terrainTextureAssetCache,
+} from "@/components/museiq/model-viewer/constants";
+import type {
+  CabezaClavaModelViewProps,
+  CameraFit,
+  EmbeddedTextureAsset,
+  GltfAccessor,
+  GltfImage,
+  GltfJson,
+  GltfNode,
+  GltfPrimitive,
+  GltfResources,
+  ImmersiveCameraRig,
+  ImmersiveSubject,
+  ImmersiveTourDefinition,
+  ImmersiveTourFrame,
+  ImmersiveTourVector,
+  ModelAsset,
+  ModelPreparationProgress,
+  PreparedModelSource,
+  TextureAsset,
+} from "@/components/museiq/model-viewer/types";
+import { estimateImmersiveNarrationDuration } from "@/lib/immersive-tours";
 import type { SkyTextureAsset } from "@/lib/sky-assets";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
@@ -21,296 +85,13 @@ import {
   StyleSheet,
   Text,
   View,
-  type StyleProp,
-  type ViewStyle,
 } from "react-native";
 import * as THREE from "three";
 
-type CabezaClavaModelViewProps = {
-  autoRotate?: boolean;
-  externalRotationY?: number;
-  externalZoom?: number;
-  headTracking?: boolean;
-  headTrackingPaused?: boolean;
-  introRotationRadians?: number;
-  introRotationSpeed?: number;
-  immersiveSubject?: ImmersiveSubject;
-  immersiveTour?: ImmersiveTourDefinition;
-  interactive?: boolean;
-  modelAsset?: ModelAsset;
-  modelLabel?: string;
-  onHeadTrackingDebug?: (snapshot: HeadTrackingDebugState) => void;
-  onModelStatusChange?: (status: "loading" | "ready" | "error") => void;
-  onTourSegmentChange?: (segment: ImmersiveTourSegmentState | null) => void;
-  recenterSignal?: number;
-  showStatus?: boolean;
-  skyTextureAsset?: SkyTextureAsset;
-  stereo?: boolean;
-  style?: StyleProp<ViewStyle>;
-  tourPlaybackPaused?: boolean;
-  viewMode?: ModelViewMode;
-};
-
-type ModelAsset = number;
-type ImmersiveSubject = "space" | "object";
-type ModelViewMode = "object" | "immersive";
-
-type GltfJson = {
-  accessors: GltfAccessor[];
-  bufferViews: GltfBufferView[];
-  images?: GltfImage[];
-  materials?: GltfMaterial[];
-  meshes?: GltfMesh[];
-  nodes?: GltfNode[];
-  samplers?: GltfSampler[];
-  scene?: number;
-  scenes?: { nodes?: number[] }[];
-  textures?: GltfTexture[];
-};
-
-type GltfAccessor = {
-  bufferView?: number;
-  byteOffset?: number;
-  componentType: number;
-  count: number;
-  normalized?: boolean;
-  type: "SCALAR" | "VEC2" | "VEC3" | "VEC4" | "MAT2" | "MAT3" | "MAT4";
-};
-
-type GltfBufferView = {
-  buffer?: number;
-  byteLength: number;
-  byteOffset?: number;
-  byteStride?: number;
-};
-
-type GltfMesh = {
-  primitives: GltfPrimitive[];
-};
-
-type GltfPrimitive = {
-  attributes: Record<string, number>;
-  indices?: number;
-  material?: number;
-};
-
-type GltfNode = {
-  children?: number[];
-  matrix?: number[];
-  mesh?: number;
-  rotation?: [number, number, number, number];
-  scale?: [number, number, number];
-  translation?: [number, number, number];
-};
-
-type GltfMaterial = {
-  emissiveTexture?: { index?: number };
-  pbrMetallicRoughness?: {
-    baseColorFactor?: [number, number, number, number];
-    baseColorTexture?: { index?: number };
-    metallicFactor?: number;
-    roughnessFactor?: number;
-  };
-};
-
-type GltfImage = {
-  bufferView?: number;
-  mimeType?: string;
-  uri?: string;
-};
-
-type GltfTexture = {
-  sampler?: number;
-  source?: number;
-};
-
-type GltfSampler = {
-  magFilter?: number;
-  minFilter?: number;
-  wrapS?: number;
-  wrapT?: number;
-};
-
-type GltfResources = {
-  textures: Map<number, THREE.Texture>;
-};
-
-type PreparedModelSource = {
-  arrayBuffer: ArrayBuffer;
-  binStart: number;
-  json: GltfJson;
-  resources: GltfResources;
-};
-
-type EmbeddedTextureAsset = {
-  height: number;
-  localUri: string;
-  width: number;
-};
-type TextureAsset = number | string;
-
-type CameraFit = {
-  distance: number;
-  far: number;
-  near: number;
-  target: THREE.Vector3;
-};
-
-type ImmersiveCameraRig = {
-  basePitch: number;
-  baseYaw: number;
-  far: number;
-  lookDistance: number;
-  near: number;
-  origin: THREE.Vector3;
-  subject: ImmersiveSubject;
-  target: THREE.Vector3;
-  tourPoints: ImmersiveTourPoint[];
-};
-
-type ImmersiveTourPoint = {
-  duration: number;
-  fov?: number;
-  id: string;
-  narration?: ImmersiveTourNarration;
-  position: THREE.Vector3;
-  target: THREE.Vector3;
-};
-
-type ImmersiveTourFrame = {
-  elapsedSeconds: number;
-  fov?: number;
-  narration?: ImmersiveTourNarration;
-  pointId: string;
-  pointIndex: number;
-  position: THREE.Vector3;
-  progress: number;
-  segmentDuration: number;
-  target: THREE.Vector3;
-};
-
-export type ImmersiveTourSegmentState = {
-  elapsedSeconds: number;
-  narration?: ImmersiveTourNarration;
-  pointId: string;
-  pointIndex: number;
-  progress: number;
-  segmentDuration: number;
-};
-
-export type HeadTrackingDebugState = {
-  alpha: number | null;
-  accelerometerAvailable: boolean | null;
-  accelerometerEvents: number;
-  accelX: number | null;
-  accelY: number | null;
-  accelZ: number | null;
-  beta: number | null;
-  deviceMotionAvailable: boolean | null;
-  deviceMotionEvents: number;
-  error: string | null;
-  gyroX: number | null;
-  gyroY: number | null;
-  gyroZ: number | null;
-  gyroscopeAvailable: boolean | null;
-  gyroscopeEvents: number;
-  headTrackingEnabled: boolean;
-  magnetometerAvailable: boolean | null;
-  magnetometerEvents: number;
-  magX: number | null;
-  magY: number | null;
-  magZ: number | null;
-  pitch: number;
-  platform: string;
-  source: "none" | "device-motion" | "gyroscope" | "compass";
-  yaw: number;
-};
-
-type ModelPreparationProgress = (progress: number) => void;
-
-const COMPONENT_BYTE_SIZE: Record<number, number> = {
-  5120: 1,
-  5121: 1,
-  5122: 2,
-  5123: 2,
-  5125: 4,
-  5126: 4,
-};
-
-const ITEM_SIZE: Record<GltfAccessor["type"], number> = {
-  MAT2: 4,
-  MAT3: 9,
-  MAT4: 16,
-  SCALAR: 1,
-  VEC2: 2,
-  VEC3: 3,
-  VEC4: 4,
-};
-
-const ATTRIBUTE_MAP: Record<string, string> = {
-  COLOR_0: "color",
-  NORMAL: "normal",
-  POSITION: "position",
-  TEXCOORD_0: "uv",
-};
-
-const INTRO_ROTATION_RADIANS = Math.PI * 4;
-const INTRO_ROTATION_SPEED = 0.012;
-const MODEL_WIDTH_FILL_RATIO = 0.98;
-const MAX_MODEL_ZOOM = 3.4;
-const MIN_MODEL_ZOOM = 0.72;
-const MAX_VERTICAL_ROTATION = Math.PI * 0.32;
-const MAX_IMMERSIVE_PITCH = Math.PI * 0.52;
-const IMMERSIVE_TRACKING_PITCH_SENSITIVITY = 2.05;
-const IMMERSIVE_TRACKING_YAW_SENSITIVITY = 1.75;
-const IMMERSIVE_TRACKING_SMOOTHING = 0.5;
-const IMMERSIVE_SENSOR_YAW_DEADZONE = 0.01;
-const IMMERSIVE_SENSOR_PITCH_DEADZONE = 0.004;
-const IMMERSIVE_SENSOR_YAW_SMOOTHING = 0.24;
-const IMMERSIVE_SENSOR_PITCH_SMOOTHING = 0.38;
-const IMMERSIVE_TOUR_YAW_SMOOTHING = 0.34;
-const IMMERSIVE_TOUR_PITCH_SMOOTHING = 0.42;
-const IMMERSIVE_TILT_YAW_ASSIST = 0.95;
-const IMMERSIVE_COMPASS_YAW_WEIGHT = 1;
-const IMMERSIVE_SPACE_TOUR_HEAD_YAW_WEIGHT = 1.65;
-const IMMERSIVE_SPACE_TOUR_HEAD_PITCH_WEIGHT = 1.52;
-const IMMERSIVE_SPACE_TOUR_HEAD_YAW_DIRECTION = -1;
-const IMMERSIVE_SPACE_TOUR_HEAD_PITCH_DIRECTION = -1;
-const IMMERSIVE_MIN_TOUR_FOV = 35;
-const IMMERSIVE_MAX_TOUR_FOV = 82;
-const ENABLE_3D_TERMINAL_LOGS = false;
-const ENABLE_VR_PERFORMANCE_LOGS = false;
-const VR_PERFORMANCE_LOG_INTERVAL_MS = 1000;
-const VR_EYE_SEPARATION = 0.024;
-const IMMERSIVE_STEREO_TARGET_FRAME_MS = 1000 / 30;
-const IMMERSIVE_TEXTURE_MAX_ANISOTROPY = 2;
-const IMMERSIVE_TERRAIN_EXTRA_RADIUS = 2.4;
-const IMMERSIVE_TERRAIN_MAX_SIZE = 520;
-const IMMERSIVE_TERRAIN_MIN_SIZE = 180;
-const IMMERSIVE_TERRAIN_REPEAT_METERS = 7.5;
-const IMMERSIVE_TERRAIN_Y_LIFT_MIN = 0.04;
-const IMMERSIVE_TERRAIN_Y_LIFT_RATIO = 0.025;
-const deviceOrientationAxis = new THREE.Vector3(0, 0, 1);
-const deviceOrientationEuler = new THREE.Euler();
-const deviceOrientationScreenQuaternion = new THREE.Quaternion();
-const deviceOrientationTransformQuaternion = new THREE.Quaternion(
-  -Math.sqrt(0.5),
-  0,
-  0,
-  Math.sqrt(0.5),
-);
-const identityQuaternion = new THREE.Quaternion();
-
-const embeddedTextureFileCache = new Map<string, Promise<EmbeddedTextureAsset>>();
-const preparedModelCache = new Map<ModelAsset, Promise<PreparedModelSource>>();
-const preparedModelTemplateCache = new Map<ModelAsset, Promise<THREE.Object3D>>();
-const skyTextureAssetCache = new Map<SkyTextureAsset, Promise<EmbeddedTextureAsset>>();
-const terrainTextureAssetCache = new Map<TextureAsset, Promise<EmbeddedTextureAsset>>();
-const immersiveTerrainTextures = {
-  diffuse: terrainDiffuseTexture,
-  normal: terrainNormalTexture,
-  roughness: terrainRoughnessTexture,
-} satisfies Record<string, TextureAsset>;
+export type {
+  HeadTrackingDebugState,
+  ImmersiveTourSegmentState,
+} from "@/components/museiq/model-viewer/types";
 
 function log3d(...args: Parameters<typeof console.log>) {
   if (ENABLE_3D_TERMINAL_LOGS) {
