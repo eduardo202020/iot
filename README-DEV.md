@@ -42,9 +42,12 @@ Para pruebas rápidas, el scanner acepta fallback por nombre BLE:
 - [providers/museiq-provider.tsx](providers/museiq-provider.tsx): composición del estado compartido
 - [providers/museiq/](providers/museiq): módulos internos del provider
 - [features/](features): implementación por dominio
-- [app/ar-qr.tsx](app/ar-qr.tsx): scanner QR real con `expo-camera`
-- [app/ar-viro-activo.tsx](app/ar-viro-activo.tsx): AR MVP con cámara de fondo y GLB interactivo
+- [app/ar-qr.tsx](app/ar-qr.tsx): scanner QR real con `expo-camera` y ruteo hacia AR contextual o fallback
+- [app/obra-identificada.tsx](app/obra-identificada.tsx): confirmación/fallback para escuchar, preguntar o ver AR cuando no se abre 3D directo
+- [app/ar-viro-activo.tsx](app/ar-viro-activo.tsx): AR MVP con cámara de fondo, GLB interactivo y acciones contextuales
+- [app/modelo-3d-no-disponible.tsx](app/modelo-3d-no-disponible.tsx): fallback dedicado para obras sin GLB listo
 - [lib/ar-artwork-experiences.ts](lib/ar-artwork-experiences.ts): resolución de modelos AR optimizados/fallback por obra
+- [docs/qa/ar-qr-flow.md](docs/qa/ar-qr-flow.md): checklist de QA físico para QR/AR
 - [lib/immersive-experiences.generated.ts](lib/immersive-experiences.generated.ts): experiencias inmersivas generadas desde Muse3D
 - [lib/immersive-tours.ts](lib/immersive-tours.ts): tours, duraciones y narración local por tramo
 
@@ -72,10 +75,12 @@ Referencia rápida: [ARCHITECTURE.md](ARCHITECTURE.md)
 
 En el flujo AR/3D actual:
 
-- `ar-qr` usa cámara real para leer códigos QR de obra y abre `ar-viro-activo`.
-- `ar-viro-activo` es el MVP estable de AR: cámara de fondo + GLB interactivo en overlay.
+- `ar-qr` usa cámara real para leer códigos QR de obra y abre `ar-viro-activo` cuando la obra tiene GLB.
+- `obra-identificada` queda como pausa museográfica/fallback: permite escuchar, preguntar o entrar explícitamente al AR MVP cuando no hay 3D directo.
+- `ar-viro-activo` es el MVP estable de AR: cámara de fondo + GLB interactivo en overlay + acciones `Escuchar`, `Preguntar`, `Explorar` y `Escanear`.
 - `ar-viro-activo` usa modelos AR optimizados o fallbacks desde `lib/ar-artwork-experiences.ts` para evitar crashes con GLB pesados.
-- La transición QR -> AR desmonta primero el scanner de cámara y luego monta el visor con cámara + GLView.
+- `modelo-3d-no-disponible` evita mostrar un GLB default cuando una obra futura no tenga modelo registrado.
+- La transición QR -> AR contextual/fallback desmonta primero el scanner de cámara para liberar la vista nativa.
 - `cargando-ar` y `ar-activo` permanecen como flujo contextual/legado de AR temporal.
 - `ar-activo` mantiene al modelo 3D a pantalla completa en el flujo legado.
 - `Preguntar IA` abre `pregunta-voz-modal`.
@@ -244,8 +249,9 @@ Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) +
 - visor con zoom y arrastre
 - memoria local por obra
 - panel de sensores
-- QR real con cámara, parsing local y handoff seguro hacia AR
-- AR MVP con cámara de fondo, GLB interactivo, loading animado, gesto de pinch y giro inicial de dos vueltas
+- QR real con cámara, parsing local y handoff seguro hacia AR contextual o fallback de obra identificada
+- QA automatico del catalogo AR con `npm run qa:ar`
+- AR MVP con cámara de fondo, GLB interactivo, acciones contextuales, loading animado, gesto de pinch y giro inicial de dos vueltas
 - resolución segura de modelos AR por obra, con fallbacks optimizados para móviles
 - sheets contextuales en `ar-activo` para audio y QR
 - CTA inferior de `Preguntar IA` como único acceso principal al modal de preguntas dentro del flujo AR
@@ -263,14 +269,13 @@ Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) +
 
 El roadmap activo de producto y flujo vive en [ROADMAP.md](ROADMAP.md). A nivel técnico, las prioridades inmediatas son:
 
-- completar QA de QR físico -> AR para todos los códigos impresos
+- completar QA de QR físico -> AR contextual/fallback para todos los códigos impresos
 - sustituir fallbacks AR por modelos optimizados propios de cada obra
 - pulir materiales, escala y acabado del terreno inmersivo por experiencia
 - evolucionar la narracion inmersiva local hacia un contrato remoto/MuseRAG
 - definir el contrato `model_3d` y `hotspots` con MuseRAG
 - definir el contrato remoto de sala inmersiva: capability, modelo de entorno, tour, narrativa y hotspots del espacio
 - implementar el estado `T` de actualización disponible
-- implementar la pantalla dedicada `W Modelo 3D no disponible`
 - evaluar si el siguiente paso AR será anclaje por plano, marcador visual o QR con ReactVision/ViroReact/ARCore
 
 Notas de implementación vigentes:

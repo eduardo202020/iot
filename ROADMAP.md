@@ -8,7 +8,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 
 - La experiencia principal es Home AR, no un set de tabs.
 - BLE detecta sala/zona; no debe afirmar obra exacta sin QR o selección explícita.
-- QR identifica una obra exacta y puede abrir directamente el MVP AR estable.
+- QR identifica una obra exacta y abre la experiencia 3D contextual si hay GLB; si no, muestra una pausa de decisión/fallback.
 - Info y fuentes no son acciones permanentes del Home ni tabs persistentes del detalle.
 - En AR activo, `Audio` puede vivir como acción lateral superior; `Preguntar IA` queda como CTA inferior principal.
 - Preguntar debe sentirse como un modal contextual que emerge sobre la experiencia.
@@ -25,7 +25,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 2. `seleccionar-museo`: selección de museo actual y futuros museos.
 3. `preparacion-visita`: permisos, conectividad y estado base.
 4. `/(drawer)/home`: HUD principal con BLE, explorar, preguntar y QR.
-5. `ar-qr`, `obra-identificada` y `artwork-detail`: identificación por QR real, confirmación/fallback y ficha de obra.
+5. `ar-qr`, `obra-identificada` y `artwork-detail`: identificación por QR real, AR contextual si hay GLB, confirmación/fallback y ficha de obra.
 6. `pregunta-voz-modal`: consulta contextual por voz o texto.
 7. `ar-viro-activo`: MVP AR estable con cámara de fondo y GLB interactivo.
 8. `cargando-ar`, `ar-activo`, `ar-hotspot-seleccionado`: recorrido AR contextual legado.
@@ -47,11 +47,12 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 
 - [x] `7 Explorar sala` / `03-01.png`: bottom sheet de obras de la sala.
 - [x] `8 Escanear QR` / `03-02.png`: QR real con cámara en Home (`app/ar-qr.tsx`) y sheet contextual legado en `ar-activo`.
-- [x] Parsing local de códigos de obra y handoff seguro QR -> AR MVP.
+- [x] Parsing local de códigos de obra y handoff seguro QR -> AR contextual/fallback.
 - [x] `X Resultado de QR inválido`: error de QR, causas y reintento (`app/qr-invalido.tsx`).
 - [x] Entrada manual de código QR (`app/codigo-manual.tsx`).
-- [x] `9 Obra identificada` / `03-03.png`: confirmación/fallback tras QR o entrada manual (`app/obra-identificada.tsx`).
-- [x] `9 Obra identificada`: layout simplificado con back superior, `Audio` superior derecho y CTA unico `Ver en AR`.
+- [x] `9 Obra identificada` / `03-03.png`: confirmación/fallback tras QR sin GLB o entrada manual (`app/obra-identificada.tsx`).
+- [x] `9 Obra identificada`: layout simplificado con back superior y acciones claras de mediación.
+- [x] `9 Obra identificada`: punto de decisión fallback con `Escuchar`, `Preguntar` y `Ver en AR`.
 - [x] `A Detalles de la obra` / `05-02.png`: ficha base (`app/artwork-detail.tsx`).
 - [x] `B Imágenes relacionadas` / `05-03.png`: galería (`app/artwork-images.tsx`).
 - [x] Detalle simplificado a tabs de `Detalles` e `Imagenes`.
@@ -60,7 +61,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 ### AR, chat y audio
 
 - [x] `R Cargando AR` / `08-03.png`: carga visual de modelo (`app/cargando-ar.tsx`).
-- [x] `10 AR activo (obra 3D)`: MVP estable con cámara de fondo y GLB interactivo (`app/ar-viro-activo.tsx`).
+- [x] `10 AR activo (obra 3D)`: MVP estable con cámara de fondo, GLB interactivo y acciones contextuales (`app/ar-viro-activo.tsx`).
 - [x] Escena AR temporal/legada con modelo 3D (`app/ar-activo.tsx`).
 - [x] `11 Hotspot seleccionado`: detalle de hotspot (`app/ar-hotspot-seleccionado.tsx`).
 - [x] `12 Chat IA (bottom sheet/modal)`: flujo de preguntar como modal inferior (`app/pregunta-voz-modal.tsx`).
@@ -74,7 +75,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] `V AR no disponible`: fallback a visor 3D (`app/ar-no-disponible.tsx`).
 - [x] `U Visor 3D sin AR`: visor 3D (`app/visor-3d.tsx`).
 - [ ] AR espacial real con anclaje por plano, marcador visual o QR usando ARCore/ARKit o librería equivalente.
-- [ ] `W Modelo 3D no disponible`: pantalla dedicada, no solo mensaje interno del visor.
+- [x] `W Modelo 3D no disponible`: pantalla dedicada para obras identificadas sin GLB listo.
 
 ### Drawer y pantallas auxiliares
 
@@ -141,7 +142,7 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] Manifiesto generado de experiencias inmersivas (`lib/immersive-experiences.generated.ts`).
 - [ ] Definir contrato remoto de sala inmersiva: `immersive_mode`, `room_model_3d`, `room_tour`, `room_hotspots`.
 - [ ] Definir contrato remoto de narracion por tramo para tours inmersivos.
-- [ ] Estado dedicado `W Modelo 3D no disponible`.
+- [x] Estado dedicado `W Modelo 3D no disponible`.
 - [x] Visor 3D sin AR base (`visor-3d.tsx`).
 - [x] Fallback base si ARCore/ARKit no está disponible (`ar-no-disponible.tsx`).
 
@@ -152,8 +153,9 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 - [x] Interacción manual con GLB: zoom, arrastre, rotación y giro inicial de dos vueltas.
 - [x] Loading visual y gesto de pinch tras cargar el modelo.
 - [x] Mapeo AR seguro por obra con GLB optimizados/fallbacks.
-- [x] Handoff seguro desde scanner QR a visor AR para evitar choque de vistas nativas.
-- [ ] QA completo con todos los QR físicos impresos.
+- [x] Handoff seguro desde scanner QR a visor AR/fallback para evitar choque de vistas nativas.
+- [x] QA automatico del catalogo AR/QR con `npm run qa:ar`.
+- [ ] QA completo del flujo QR físico -> AR contextual/fallback con todos los códigos impresos.
 - [ ] Reemplazar fallbacks AR por GLB optimizados específicos para cada obra.
 - [ ] Evaluar AR espacial real con ReactVision/ViroReact, ARCore o alternativa compatible.
 - [ ] Anclaje estable por plano, marcador visual o QR si aporta valor museográfico.
@@ -178,20 +180,20 @@ Este roadmap sigue el flujo visual objetivo de MuseIQ y la implementación real 
 
 ## Próximos pasos recomendados
 
-1. Probar el flujo QR físico -> AR MVP con todos los códigos impresos y registrar qué obras usan fallback de modelo.
+1. Probar el flujo QR físico -> AR contextual/fallback con todos los códigos impresos y registrar qué obras usan fallback de modelo.
 2. Reemplazar los fallbacks AR por GLB optimizados propios de cada obra para que el MVP no dependa de modelos compartidos.
 3. Pulir materiales, escala y acabado del terreno inmersivo para que cada experiencia se sienta integrada al entorno.
 4. Evolucionar la narracion inmersiva: mantener guion local robusto, pero definir contrato remoto por tramo con MuseRAG/backend.
 5. Integrar estado `T`: actualización disponible.
-6. Implementar pantalla dedicada `W Modelo 3D no disponible`.
-7. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
-8. Definir contrato remoto de capability inmersiva por sala y sustituir el mapping local de `SALA_1`.
-9. Decidir si el siguiente AR debe usar anclaje por plano, marcador visual o QR; solo entonces retomar ARCore/ARKit/ReactVision.
+6. Definir contrato de datos `model_3d` y `hotspots` con MuseRAG, y conectar modelos por obra.
+7. Definir contrato remoto de capability inmersiva por sala y sustituir el mapping local de `SALA_1`.
+8. Decidir si el siguiente AR debe usar anclaje por plano, marcador visual o QR; solo entonces retomar ARCore/ARKit/ReactVision.
 
 ## Validación esperada
 
 - `npx tsc --noEmit`
 - `npm run lint`
+- `npm run qa:ar`
 - Revisión visual en dispositivo o emulador para Home AR, Explorar, QR, Detalle e Imágenes.
 - Prueba BLE con beacons reales o fallback por nombre.
 - Prueba MuseRAG con backend local accesible desde el móvil.
