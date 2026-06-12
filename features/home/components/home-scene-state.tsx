@@ -8,13 +8,21 @@ type HomeSceneStateProps = {
   isSuggestionVisible: boolean;
   onCloseSuggestion: () => void;
   onExploreOtherSuggestions: () => void;
-  onViewSuggestedAr: () => void;
+  onViewSuggestedAr: (resourceId?: string) => void;
   roomName: string;
   shouldShowSuggestionCta: boolean;
   suggestedArtwork?: {
     title: string;
   };
   suggestedArtworkImageSource: ReturnType<typeof import("@/lib/artwork-images").getArtworkImageSource>;
+  suggestedArtworkResources: {
+    id: string;
+    modelTitle: string;
+    qrCode: string;
+    relationLabel: string;
+    subtitle: string;
+    title: string;
+  }[];
 };
 
 export function HomeSceneState({
@@ -28,6 +36,7 @@ export function HomeSceneState({
   shouldShowSuggestionCta,
   suggestedArtwork,
   suggestedArtworkImageSource,
+  suggestedArtworkResources,
 }: HomeSceneStateProps) {
   if (
     !isImmersiveRoom &&
@@ -43,6 +52,7 @@ export function HomeSceneState({
           onClose={onCloseSuggestion}
           onExploreOther={onExploreOtherSuggestions}
           onViewAr={onViewSuggestedAr}
+          resources={suggestedArtworkResources}
         />
       </View>
     );

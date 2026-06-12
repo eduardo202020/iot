@@ -46,6 +46,7 @@ export default function HomeScreen() {
     shouldShowSuggestionCta,
     suggestedArtwork,
     suggestedArtworkImageSource,
+    suggestedArtworkResources,
     topRoomLabel,
     visitedArtworkIds,
     closeQrScanner,
@@ -114,6 +115,7 @@ export default function HomeScreen() {
               shouldShowSuggestionCta={shouldShowSuggestionCta}
               suggestedArtwork={suggestedArtwork}
               suggestedArtworkImageSource={suggestedArtworkImageSource}
+              suggestedArtworkResources={suggestedArtworkResources}
             />
             <HomeBottomHud
               centralLabel={centralLabel}

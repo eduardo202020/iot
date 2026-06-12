@@ -1,7 +1,9 @@
 import { ArArtifactModel, arColors } from "@/components/museiq/ar-flow";
 import { musePalette } from "@/components/museiq/theme";
-import { getArArtworkExperience } from "@/lib/ar-artwork-experiences";
-import { hasArtworkModelAsset } from "@/lib/artwork-models";
+import {
+  getArtworkModelAssetForArtwork,
+  hasArtworkModelAsset,
+} from "@/lib/artwork-models";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -93,6 +95,7 @@ export default function ArViroActivoScreen() {
   const gesturePulse = useRef(new Animated.Value(0)).current;
   const loadingSpin = useRef(new Animated.Value(0)).current;
   const permissionRequestedRef = useRef(false);
+  const cameraReadyRef = useRef(false);
 
   const requestedArtwork = artworkId ? findArtworkById(artworkId) : null;
   const fallbackArtwork = findArtworkById(DEFAULT_AR_ARTWORK_ID);
@@ -100,7 +103,7 @@ export default function ArViroActivoScreen() {
   const resolvedArtworkId = artwork?.id ?? DEFAULT_AR_ARTWORK_ID;
   const hasModelAsset = hasArtworkModelAsset(resolvedArtworkId);
   const arModel = useMemo(
-    () => getArArtworkExperience(resolvedArtworkId),
+    () => getArtworkModelAssetForArtwork(resolvedArtworkId),
     [resolvedArtworkId],
   );
 
@@ -115,6 +118,19 @@ export default function ArViroActivoScreen() {
 
     selectArtwork(resolvedArtworkId);
   }, [currentArtworkId, resolvedArtworkId, selectArtwork]);
+
+  useEffect(() => {
+    setModelStatus((previousStatus) =>
+      previousStatus === "loading" ? previousStatus : "loading",
+    );
+    setHasShownGestureHint((previousValue) => (previousValue ? false : previousValue));
+    gesturePulse.setValue(0);
+    loadingSpin.setValue(0);
+    logArMvp("artworkChanged", {
+      artworkId: resolvedArtworkId,
+      model: arModel.label,
+    });
+  }, [arModel.label, gesturePulse, loadingSpin, logArMvp, resolvedArtworkId]);
 
   useEffect(() => {
     if (!artwork || hasModelAsset) {
@@ -161,9 +177,33 @@ export default function ArViroActivoScreen() {
   ]);
 
   const handleCameraReady = useCallback(() => {
+    if (cameraReadyRef.current) {
+      return;
+    }
+
+    cameraReadyRef.current = true;
     setCameraReady(true);
     logArMvp("cameraReady", { mode: "camera-overlay-glb" });
   }, [logArMvp]);
+
+  const handleModelStatusChange = useCallback(
+    (nextStatus: ModelStatus) => {
+      setModelStatus((previousStatus) => {
+        if (previousStatus === nextStatus) {
+          return previousStatus;
+        }
+
+        logArMvp("modelStatusChange", {
+          artworkId: resolvedArtworkId,
+          model: arModel.label,
+          nextStatus,
+          previousStatus,
+        });
+        return nextStatus;
+      });
+    },
+    [arModel.label, logArMvp, resolvedArtworkId],
+  );
 
   const handleExplore = useCallback(() => {
     router.replace("/home" as never);
@@ -194,7 +234,7 @@ export default function ArViroActivoScreen() {
 
   useEffect(() => {
     if (modelStatus === "loading") {
-      setHasShownGestureHint(false);
+      setHasShownGestureHint((previousValue) => (previousValue ? false : previousValue));
     }
   }, [modelStatus]);
 
@@ -319,14 +359,15 @@ export default function ArViroActivoScreen() {
 
       <View style={styles.modelStage}>
         <ArArtifactModel
+          key={`${resolvedArtworkId}-${arModel.label}`}
           artworkId={resolvedArtworkId}
           autoRotate
           externalZoom={INITIAL_MODEL_ZOOM}
           introRotationRadians={INTRO_MODEL_ROTATION_RADIANS}
           introRotationSpeed={INTRO_MODEL_ROTATION_SPEED}
           interactive
-          modelVariant="ar"
-          onModelStatusChange={setModelStatus}
+          modelVariant="catalog"
+          onModelStatusChange={handleModelStatusChange}
           showStatus={false}
           style={styles.modelOverlay}
         />

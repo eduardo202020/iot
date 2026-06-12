@@ -244,6 +244,8 @@ export function CabezaClavaModelView({
   const perfLastRenderFrameAtRef = useRef(0);
   const perfMaxFrameMsRef = useRef(0);
   const perfSlowFrameCountRef = useRef(0);
+  const lastNotifiedStatusRef = useRef<typeof status | null>(null);
+  const onModelStatusChangeRef = useRef(onModelStatusChange);
   const renderedPitchRef = useRef(0);
   const renderedRollRef = useRef(0);
   const renderedYawRef = useRef(0);
@@ -271,8 +273,17 @@ export function CabezaClavaModelView({
   }, [introRotationSpeed]);
 
   useEffect(() => {
-    onModelStatusChange?.(status);
-  }, [onModelStatusChange, status]);
+    onModelStatusChangeRef.current = onModelStatusChange;
+  }, [onModelStatusChange]);
+
+  useEffect(() => {
+    if (lastNotifiedStatusRef.current === status) {
+      return;
+    }
+
+    lastNotifiedStatusRef.current = status;
+    onModelStatusChangeRef.current?.(status);
+  }, [status]);
 
   useEffect(() => {
     externalRotationYRef.current = externalRotationY;

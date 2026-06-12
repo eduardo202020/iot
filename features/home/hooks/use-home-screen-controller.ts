@@ -10,12 +10,17 @@ import {
   museumMock,
   type ArtworkMock,
 } from "@/datos";
+import {
+  getArResourceById,
+  getArResourcesForArtwork,
+  getDefaultArResourceForArtwork,
+} from "@/lib/museum-structure";
 import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
 import type { BeaconData } from "@/types/beacon";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { useIsFocused } from "@react-navigation/native";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ActiveSheet = "explore" | "immersive" | "qr" | null;
 
@@ -88,6 +93,7 @@ export function useHomeScreenController() {
     currentRoom,
     currentArtworkId,
     debugModeEnabled,
+    findArtworkById,
     findRoomById,
     getArtworksForRoom,
     homeQuickActionsVisible,
@@ -117,12 +123,23 @@ export function useHomeScreenController() {
   const [isSuggestionVisible, setIsSuggestionVisible] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [isSensorPanelOpen, setIsSensorPanelOpen] = useState(false);
+  const lastAppliedRoomIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (dominantBeacon?.roomId) {
-      setCurrentRoomById(dominantBeacon.roomId);
+    if (!isFocused || !dominantBeacon?.roomId) {
+      return;
     }
-  }, [dominantBeacon?.roomId, setCurrentRoomById]);
+
+    if (
+      lastAppliedRoomIdRef.current === dominantBeacon.roomId &&
+      currentRoom?.id === dominantBeacon.roomId
+    ) {
+      return;
+    }
+
+    lastAppliedRoomIdRef.current = dominantBeacon.roomId;
+    setCurrentRoomById(dominantBeacon.roomId);
+  }, [currentRoom?.id, dominantBeacon?.roomId, isFocused, setCurrentRoomById]);
 
   const detectedRoom = useMemo(() => {
     if (!dominantBeacon?.roomId) {
@@ -171,6 +188,15 @@ export function useHomeScreenController() {
     return isRoomDetected ? undefined : currentArtwork;
   }, [currentArtwork, dominantBeacon, headingState, isRoomDetected, roomArtworks]);
   const suggestedArtworkImageSource = getArtworkImageSource(suggestedArtwork?.image);
+  const suggestedArtworkResources = useMemo(
+    () =>
+      getArResourcesForArtwork(suggestedArtwork?.id).map((resource) => ({
+        ...resource,
+        modelTitle:
+          findArtworkById(resource.modelArtworkId)?.title ?? resource.title,
+      })),
+    [findArtworkById, suggestedArtwork?.id],
+  );
   const hasNearbySuggestion = isRoomDetected && !isImmersiveRoom && Boolean(suggestedArtwork);
   const isSuggestionDismissed =
     Boolean(suggestedArtwork?.id) && dismissedSuggestionId === suggestedArtwork?.id;
@@ -194,6 +220,7 @@ export function useHomeScreenController() {
       beaconSource: dominantBeacon?.source ?? "ble",
       isImmersiveRoom,
       isRoomDetected,
+      resourceCount: suggestedArtworkResources.length,
       shouldShowSuggestionCta,
       suggestedArtworkId: suggestedArtwork?.id ?? null,
     }));
@@ -205,18 +232,33 @@ export function useHomeScreenController() {
     dominantBeacon?.source,
     isImmersiveRoom,
     isRoomDetected,
+    suggestedArtworkResources.length,
     shouldShowSuggestionCta,
     suggestedArtwork?.id,
   ]);
 
   useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+
     if (!hasNearbySuggestion || !suggestedArtwork?.id || isSuggestionDismissed) {
       setIsSuggestionVisible(false);
       return;
     }
 
+    if (activeSheet) {
+      return;
+    }
+
     setIsSuggestionVisible(true);
-  }, [hasNearbySuggestion, isSuggestionDismissed, suggestedArtwork?.id]);
+  }, [
+    activeSheet,
+    hasNearbySuggestion,
+    isFocused,
+    isSuggestionDismissed,
+    suggestedArtwork?.id,
+  ]);
 
   useEffect(() => {
     if (!isRoomDetected || !activeRoomId) {
@@ -274,17 +316,24 @@ export function useHomeScreenController() {
     openCentralQuestion();
   };
 
-  const handleViewSuggestedAr = () => {
+  const handleViewSuggestedAr = (resourceId?: string) => {
     if (!suggestedArtwork?.id) {
       return;
     }
 
-    selectArtwork(suggestedArtwork.id);
-    setDismissedSuggestionId(suggestedArtwork.id);
-    setIsSuggestionVisible(false);
+    const resource =
+      getArResourceById(resourceId) ??
+      getDefaultArResourceForArtwork(suggestedArtwork.id);
+    const targetArtworkId = resource?.modelArtworkId ?? suggestedArtwork.id;
+
+    selectArtwork(targetArtworkId);
     router.push({
       pathname: "/ar-viro-activo",
-      params: { artworkId: suggestedArtwork.id },
+      params: {
+        artworkId: targetArtworkId,
+        resourceId: resource?.id,
+        sourceArtworkId: suggestedArtwork.id,
+      },
     } as never);
   };
 
@@ -408,6 +457,7 @@ export function useHomeScreenController() {
     shouldShowSuggestionCta,
     suggestedArtwork,
     suggestedArtworkImageSource,
+    suggestedArtworkResources,
     topRoomLabel,
     visitedArtworkIds,
     closeQrScanner,
