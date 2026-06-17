@@ -7,8 +7,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 type BleSuggestionCardProps = {
   artworkTitle: string;
   imageSource: ReturnType<typeof getArtworkImageSource>;
+  isNarrationPlaying: boolean;
+  onAsk: () => void;
   onClose: () => void;
   onExploreOther: () => void;
+  onListen: () => void;
   onViewAr: (resourceId?: string) => void;
   resources: {
     id: string;
@@ -23,8 +26,11 @@ type BleSuggestionCardProps = {
 export function BleSuggestionCard({
   artworkTitle,
   imageSource,
+  isNarrationPlaying,
+  onAsk,
   onClose,
   onExploreOther,
+  onListen,
   onViewAr,
   resources,
 }: BleSuggestionCardProps) {
@@ -75,6 +81,36 @@ export function BleSuggestionCard({
             La sala reconoce esta zona. Puedes explorar los recursos 3D asociados a la vitrina.
           </Text>
         </View>
+      </View>
+
+      <View style={styles.quickActions}>
+        <Pressable
+          onPress={onListen}
+          style={({ pressed }) => [
+            styles.quickAction,
+            isNarrationPlaying ? styles.quickActionActive : null,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Ionicons
+            color="#FFFFFF"
+            name={isNarrationPlaying ? "volume-high" : "volume-high-outline"}
+            size={18}
+          />
+          <Text style={styles.quickActionText}>
+            {isNarrationPlaying ? "Narrando" : "Escuchar"}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onAsk}
+          style={({ pressed }) => [
+            styles.quickAction,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Ionicons color="#FFFFFF" name="chatbubble-ellipses-outline" size={18} />
+          <Text style={styles.quickActionText}>Preguntar</Text>
+        </Pressable>
       </View>
 
       {resources.length > 0 ? (
@@ -219,6 +255,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     lineHeight: 21,
+  },
+  quickActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  quickAction: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.16)",
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  quickActionActive: {
+    backgroundColor: "rgba(22,137,206,0.22)",
+    borderColor: "rgba(22,137,206,0.52)",
+  },
+  quickActionText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
   },
   resourceSection: {
     gap: 9,

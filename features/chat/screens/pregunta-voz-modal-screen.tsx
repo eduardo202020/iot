@@ -75,9 +75,15 @@ export default function PreguntaVozModal() {
           errorMessage={chatSheetProps.errorMessage}
           hasResponse={hasResponse}
           isLoading={chatSheetProps.isLoading}
+          isSpeaking={chatSheetProps.isSpeaking}
           onOpenImage={chatSheetProps.onOpenImage}
+          onSpeakResponse={chatSheetProps.onSpeakResponse}
+          onStopSpeaking={chatSheetProps.onStopSpeaking}
           response={chatSheetProps.response}
+          showSpeechSubtitles={chatSheetProps.subtitlesEnabled !== false}
           sources={chatSheetProps.sources}
+          speakingDisplayText={chatSheetProps.speakingDisplayText}
+          speechHighlightRange={chatSheetProps.speechHighlightRange}
         />
         </View>
       </View>

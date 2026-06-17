@@ -6,6 +6,7 @@ import {
   getRoomImmersiveExperiences,
 } from "@/lib/room-experiences";
 import {
+  MVP_NORMAL_ROOM_ID,
   MVP_IMMERSIVE_ROOM_ID,
   museumMock,
   type ArtworkMock,
@@ -23,6 +24,7 @@ import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type ActiveSheet = "explore" | "immersive" | "qr" | null;
+const SUGGESTION_AUTO_NARRATION_DELAY_MS = 3600;
 
 const fallbackImmersiveRoom = museumMock.rooms.find(
   (room) => room.id === MVP_IMMERSIVE_ROOM_ID,
@@ -99,9 +101,11 @@ export function useHomeScreenController() {
     homeQuickActionsVisible,
     isArtworkNarrationPlaying,
     museumProfile,
+    playArtworkNarration,
     repeatArtworkNarration,
     selectArtwork,
     setCurrentRoomById,
+    settings,
     visitedArtworkIds,
   } = useMuseIQ();
   const {
@@ -123,6 +127,7 @@ export function useHomeScreenController() {
   const [isSuggestionVisible, setIsSuggestionVisible] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [isSensorPanelOpen, setIsSensorPanelOpen] = useState(false);
+  const autoNarratedSuggestionIdsRef = useRef<Set<string>>(new Set());
   const lastAppliedRoomIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -288,6 +293,47 @@ export function useHomeScreenController() {
     isRoomDetected,
   ]);
 
+  useEffect(() => {
+    const suggestedArtworkId = suggestedArtwork?.id;
+
+    if (
+      !isFocused ||
+      !settings.autoPlay ||
+      activeSheet ||
+      activeRoomId !== MVP_NORMAL_ROOM_ID ||
+      !isSuggestionVisible ||
+      !shouldShowSuggestionCta ||
+      !suggestedArtworkId ||
+      autoNarratedSuggestionIdsRef.current.has(suggestedArtworkId)
+    ) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      autoNarratedSuggestionIdsRef.current.add(suggestedArtworkId);
+      selectArtwork(suggestedArtworkId);
+      playArtworkNarration(suggestedArtworkId);
+      console.log("[MuseIQ][AUDIO_FLOW]", JSON.stringify({
+        artworkId: suggestedArtworkId,
+        event: "autoNarrationStarted",
+        roomId: activeRoomId,
+        trigger: "normal-room-zone-dwell",
+      }));
+    }, SUGGESTION_AUTO_NARRATION_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, [
+    activeRoomId,
+    activeSheet,
+    isFocused,
+    isSuggestionVisible,
+    playArtworkNarration,
+    selectArtwork,
+    settings.autoPlay,
+    shouldShowSuggestionCta,
+    suggestedArtwork?.id,
+  ]);
+
   const openCentralQuestion = () => {
     router.push({
       pathname: "/pregunta-voz-modal",
@@ -334,6 +380,29 @@ export function useHomeScreenController() {
         resourceId: resource?.id,
         sourceArtworkId: suggestedArtwork.id,
       },
+    } as never);
+  };
+
+  const handleListenSuggestedArtwork = () => {
+    if (!suggestedArtwork?.id) {
+      return;
+    }
+
+    autoNarratedSuggestionIdsRef.current.add(suggestedArtwork.id);
+    selectArtwork(suggestedArtwork.id);
+    playArtworkNarration(suggestedArtwork.id);
+  };
+
+  const handleAskSuggestedArtwork = () => {
+    if (!suggestedArtwork?.id) {
+      openCentralQuestion();
+      return;
+    }
+
+    selectArtwork(suggestedArtwork.id);
+    router.push({
+      pathname: "/pregunta-voz-modal",
+      params: { artworkId: suggestedArtwork.id },
     } as never);
   };
 
@@ -462,8 +531,10 @@ export function useHomeScreenController() {
     visitedArtworkIds,
     closeQrScanner,
     handleCentralAction,
+    handleAskSuggestedArtwork,
     handleExploreOtherSuggestions,
     handleMockQrScan,
+    handleListenSuggestedArtwork,
     handleViewSuggestedAr,
     openArtworkDetail,
     openExploreSheet,

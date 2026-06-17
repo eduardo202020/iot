@@ -15,28 +15,75 @@ type ChatAnswerCardProps = {
   errorMessage: string;
   hasResponse: boolean;
   isLoading: boolean;
+  isSpeaking: boolean;
   onOpenImage: (
     images: { id: string; label: string; uri: string }[],
     initialIndex: number,
   ) => void;
+  onSpeakResponse: () => void;
+  onStopSpeaking: () => void;
   response: string;
+  showSpeechSubtitles?: boolean;
   sources: SourceSnippet[];
+  speakingDisplayText: string;
+  speechHighlightRange: { start: number; end: number } | null;
 };
+
+function getSpeechSegments(
+  text: string,
+  range: { start: number; end: number } | null,
+) {
+  const start = Math.max(0, Math.min(range?.start ?? 0, text.length));
+  const end = Math.max(start, Math.min(range?.end ?? start, text.length));
+
+  return {
+    active: text.slice(start, end),
+    after: text.slice(end),
+    before: text.slice(0, start),
+  };
+}
 
 export function ChatAnswerCard({
   errorMessage,
   hasResponse,
   isLoading,
+  isSpeaking,
   onOpenImage,
+  onSpeakResponse,
+  onStopSpeaking,
   response,
+  showSpeechSubtitles = true,
   sources,
+  speakingDisplayText,
+  speechHighlightRange,
 }: ChatAnswerCardProps) {
+  const speechSegments = speakingDisplayText
+    ? getSpeechSegments(speakingDisplayText, speechHighlightRange)
+    : null;
+
   return (
     <View style={styles.answerCard}>
       <View style={styles.answerHeader}>
         <Ionicons color={musePalette.primary} name="sparkles-outline" size={18} />
         <Text style={styles.answerHeaderText}>Respuesta IA</Text>
         {isLoading ? <ActivityIndicator color={musePalette.primary} size="small" /> : null}
+        {hasResponse && !isLoading ? (
+          <Pressable
+            accessibilityLabel={isSpeaking ? "Detener lectura" : "Escuchar respuesta"}
+            onPress={isSpeaking ? onStopSpeaking : onSpeakResponse}
+            style={({ pressed }) => [
+              styles.speakButton,
+              isSpeaking ? styles.speakButtonActive : null,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Ionicons
+              color="#FFFFFF"
+              name={isSpeaking ? "volume-mute-outline" : "volume-high-outline"}
+              size={17}
+            />
+          </Pressable>
+        ) : null}
       </View>
 
       <ScrollView
@@ -53,6 +100,20 @@ export function ChatAnswerCard({
         )}
 
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+        {showSpeechSubtitles && isSpeaking && speechSegments ? (
+          <View style={styles.subtitleCard}>
+            <View style={styles.subtitleHeader}>
+              <Ionicons color="#FFD65A" name="text-outline" size={15} />
+              <Text style={styles.subtitleLabel}>Subtitulos de la respuesta</Text>
+            </View>
+            <Text style={styles.speechText}>
+              <Text style={styles.speechPast}>{speechSegments.before}</Text>
+              <Text style={styles.speechActive}>{speechSegments.active || " "}</Text>
+              <Text style={styles.speechFuture}>{speechSegments.after}</Text>
+            </Text>
+          </View>
+        ) : null}
 
         {sources.slice(0, 3).map((source) => (
           <Pressable
@@ -102,8 +163,23 @@ const styles = StyleSheet.create({
   },
   answerHeaderText: {
     color: "#FFFFFF",
+    flex: 1,
     fontSize: 14,
     fontWeight: "800",
+  },
+  speakButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(255,255,255,0.14)",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
+  speakButtonActive: {
+    backgroundColor: "rgba(22,137,206,0.32)",
+    borderColor: "rgba(22,137,206,0.56)",
   },
   answerScroll: {
     flex: 1,
@@ -141,6 +217,43 @@ const styles = StyleSheet.create({
     color: "#FFB2A6",
     fontSize: 12,
     fontWeight: "700",
+  },
+  subtitleCard: {
+    backgroundColor: "rgba(255,214,90,0.08)",
+    borderColor: "rgba(255,214,90,0.22)",
+    borderRadius: 13,
+    borderWidth: 1,
+    gap: 7,
+    padding: 11,
+  },
+  subtitleHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  subtitleLabel: {
+    color: "#FFD65A",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  speechText: {
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 21,
+  },
+  speechPast: {
+    color: "rgba(255,255,255,0.5)",
+  },
+  speechActive: {
+    backgroundColor: "rgba(255,214,90,0.28)",
+    color: "#FFD65A",
+    fontWeight: "900",
+  },
+  speechFuture: {
+    color: "rgba(255,255,255,0.9)",
   },
   pressed: {
     opacity: 0.84,

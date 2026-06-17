@@ -1,5 +1,7 @@
 import { ArArtifactModel, arColors } from "@/components/museiq/ar-flow";
 import { musePalette } from "@/components/museiq/theme";
+import { ArInlineQuestionPanel } from "@/features/ar/components/ar-inline-question-panel";
+import { useArtworkChatController } from "@/hooks/use-artwork-chat-controller";
 import {
   getArtworkModelAssetForArtwork,
   hasArtworkModelAsset,
@@ -87,6 +89,7 @@ export default function ArViroActivoScreen() {
     findArtworkById,
     playArtworkNarration,
     selectArtwork,
+    settings,
   } = useMuseIQ();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
@@ -106,6 +109,11 @@ export default function ArViroActivoScreen() {
     () => getArtworkModelAssetForArtwork(resolvedArtworkId),
     [resolvedArtworkId],
   );
+  const { chatSheetProps } = useArtworkChatController({ artworkId: resolvedArtworkId });
+  const [isInlineQuestionVisible, setIsInlineQuestionVisible] = useState(false);
+  const [hasInlineQuestionSubmitted, setHasInlineQuestionSubmitted] = useState(false);
+  const lastInlineSpokenResponseRef = useRef("");
+  const wasInlineResponseSpeakingRef = useRef(false);
 
   const logArMvp = useCallback((event: string, payload: ArMvpLogPayload = {}) => {
     console.log("[MuseIQ][AR_MVP]", safeStringify({ event, ...payload }));
@@ -211,11 +219,21 @@ export default function ArViroActivoScreen() {
 
   const handleAsk = useCallback(() => {
     selectArtwork(resolvedArtworkId);
-    router.push({
-      pathname: "/pregunta-voz-modal",
-      params: { artworkId: resolvedArtworkId },
-    } as never);
-  }, [resolvedArtworkId, selectArtwork]);
+    setIsInlineQuestionVisible(true);
+
+    if (chatSheetProps.isLoading) {
+      return;
+    }
+
+    if (chatSheetProps.isListening) {
+      chatSheetProps.onStopListening();
+      return;
+    }
+
+    setHasInlineQuestionSubmitted(false);
+    lastInlineSpokenResponseRef.current = "";
+    chatSheetProps.onToggleListening();
+  }, [chatSheetProps, resolvedArtworkId, selectArtwork]);
 
   const handleListen = useCallback(() => {
     selectArtwork(resolvedArtworkId);
@@ -231,6 +249,69 @@ export default function ArViroActivoScreen() {
   const showGestureHint = Boolean(
     cameraReady && canShowCamera && modelStatus === "ready" && !hasShownGestureHint,
   );
+
+  useEffect(() => {
+    if (!isInlineQuestionVisible) {
+      return;
+    }
+
+    if (chatSheetProps.pendingQuestion || chatSheetProps.isLoading) {
+      setHasInlineQuestionSubmitted(true);
+    }
+  }, [chatSheetProps.isLoading, chatSheetProps.pendingQuestion, isInlineQuestionVisible]);
+
+  useEffect(() => {
+    if (
+      !isInlineQuestionVisible ||
+      !hasInlineQuestionSubmitted ||
+      settings.autoPlay ||
+      chatSheetProps.isLoading ||
+      chatSheetProps.isSpeaking
+    ) {
+      return;
+    }
+
+    const responseText = chatSheetProps.response.trim();
+    if (!responseText || lastInlineSpokenResponseRef.current === responseText) {
+      return;
+    }
+
+    lastInlineSpokenResponseRef.current = responseText;
+    chatSheetProps.onSpeakResponse();
+  }, [
+    chatSheetProps,
+    hasInlineQuestionSubmitted,
+    isInlineQuestionVisible,
+    settings.autoPlay,
+  ]);
+
+  useEffect(() => {
+    if (!isInlineQuestionVisible || !hasInlineQuestionSubmitted) {
+      wasInlineResponseSpeakingRef.current = false;
+      return;
+    }
+
+    if (chatSheetProps.isSpeaking) {
+      wasInlineResponseSpeakingRef.current = true;
+      return;
+    }
+
+    if (
+      wasInlineResponseSpeakingRef.current &&
+      !chatSheetProps.isLoading &&
+      chatSheetProps.response.trim().length > 0
+    ) {
+      wasInlineResponseSpeakingRef.current = false;
+      setIsInlineQuestionVisible(false);
+      setHasInlineQuestionSubmitted(false);
+    }
+  }, [
+    chatSheetProps.isLoading,
+    chatSheetProps.isSpeaking,
+    chatSheetProps.response,
+    hasInlineQuestionSubmitted,
+    isInlineQuestionVisible,
+  ]);
 
   useEffect(() => {
     if (modelStatus === "loading") {
@@ -434,6 +515,27 @@ export default function ArViroActivoScreen() {
           <Text numberOfLines={2} style={styles.artworkTitle}>{artwork.title}</Text>
         </View>
 
+        {isInlineQuestionVisible ? (
+          <View style={[styles.inlineQuestionSlot, { bottom: insets.bottom + 92 }]}>
+            <ArInlineQuestionPanel
+              errorMessage={chatSheetProps.errorMessage}
+              hasSubmittedQuestion={hasInlineQuestionSubmitted}
+              isListening={chatSheetProps.isListening}
+              isLoading={chatSheetProps.isLoading}
+              isSpeaking={chatSheetProps.isSpeaking}
+              onRetry={chatSheetProps.onRetry}
+              onStopSpeaking={chatSheetProps.onStopSpeaking}
+              pendingQuestion={chatSheetProps.pendingQuestion}
+              questionText={chatSheetProps.questionText}
+              response={chatSheetProps.response}
+              speechHighlightRange={chatSheetProps.speechHighlightRange}
+              speakingDisplayText={chatSheetProps.speakingDisplayText}
+              statusMessage={chatSheetProps.statusMessage}
+              voiceStatusMessage={chatSheetProps.voiceStatusMessage}
+            />
+          </View>
+        ) : null}
+
         <View style={[styles.contextualBar, { bottom: insets.bottom + 10 }]}>
           <ContextualActionButton
             iconName="compass-outline"
@@ -607,6 +709,12 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 21,
     textAlign: "center",
+  },
+  inlineQuestionSlot: {
+    left: 16,
+    position: "absolute",
+    right: 16,
+    zIndex: 44,
   },
   contextualBar: {
     alignItems: "center",

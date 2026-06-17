@@ -4,10 +4,13 @@ import { StyleSheet, Text, View } from "react-native";
 
 type HomeSceneStateProps = {
   isImmersiveRoom: boolean;
+  isNarrationPlaying: boolean;
   isRoomDetected: boolean;
   isSuggestionVisible: boolean;
+  onAskSuggestedArtwork: () => void;
   onCloseSuggestion: () => void;
   onExploreOtherSuggestions: () => void;
+  onListenSuggestedArtwork: () => void;
   onViewSuggestedAr: (resourceId?: string) => void;
   roomName: string;
   shouldShowSuggestionCta: boolean;
@@ -27,10 +30,13 @@ type HomeSceneStateProps = {
 
 export function HomeSceneState({
   isImmersiveRoom,
+  isNarrationPlaying,
   isRoomDetected,
   isSuggestionVisible,
+  onAskSuggestedArtwork,
   onCloseSuggestion,
   onExploreOtherSuggestions,
+  onListenSuggestedArtwork,
   onViewSuggestedAr,
   roomName,
   shouldShowSuggestionCta,
@@ -49,8 +55,11 @@ export function HomeSceneState({
         <BleSuggestionCard
           artworkTitle={suggestedArtwork.title}
           imageSource={suggestedArtworkImageSource}
+          isNarrationPlaying={isNarrationPlaying}
+          onAsk={onAskSuggestedArtwork}
           onClose={onCloseSuggestion}
           onExploreOther={onExploreOtherSuggestions}
+          onListen={onListenSuggestedArtwork}
           onViewAr={onViewSuggestedAr}
           resources={suggestedArtworkResources}
         />
