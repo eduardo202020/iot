@@ -46,12 +46,15 @@ export default function HomeScreen() {
     shouldShowSuggestionCta,
     suggestedArtwork,
     suggestedArtworkImageSource,
+    suggestedArtworkResources,
     topRoomLabel,
     visitedArtworkIds,
     closeQrScanner,
     handleCentralAction,
+    handleAskSuggestedArtwork,
     handleExploreOtherSuggestions,
     handleMockQrScan,
+    handleListenSuggestedArtwork,
     handleViewSuggestedAr,
     homeQuickActionsVisible,
   } = useHomeScreenController();
@@ -105,15 +108,19 @@ export default function HomeScreen() {
           <>
             <HomeSceneState
               isImmersiveRoom={isImmersiveRoom}
+              isNarrationPlaying={isArtworkNarrationPlaying}
               isRoomDetected={isRoomDetected}
               isSuggestionVisible={isSuggestionVisible}
+              onAskSuggestedArtwork={handleAskSuggestedArtwork}
               onCloseSuggestion={dismissSuggestion}
               onExploreOtherSuggestions={handleExploreOtherSuggestions}
+              onListenSuggestedArtwork={handleListenSuggestedArtwork}
               onViewSuggestedAr={handleViewSuggestedAr}
               roomName={roomName}
               shouldShowSuggestionCta={shouldShowSuggestionCta}
               suggestedArtwork={suggestedArtwork}
               suggestedArtworkImageSource={suggestedArtworkImageSource}
+              suggestedArtworkResources={suggestedArtworkResources}
             />
             <HomeBottomHud
               centralLabel={centralLabel}

@@ -4,30 +4,45 @@ import { StyleSheet, Text, View } from "react-native";
 
 type HomeSceneStateProps = {
   isImmersiveRoom: boolean;
+  isNarrationPlaying: boolean;
   isRoomDetected: boolean;
   isSuggestionVisible: boolean;
+  onAskSuggestedArtwork: () => void;
   onCloseSuggestion: () => void;
   onExploreOtherSuggestions: () => void;
-  onViewSuggestedAr: () => void;
+  onListenSuggestedArtwork: () => void;
+  onViewSuggestedAr: (resourceId?: string) => void;
   roomName: string;
   shouldShowSuggestionCta: boolean;
   suggestedArtwork?: {
     title: string;
   };
   suggestedArtworkImageSource: ReturnType<typeof import("@/lib/artwork-images").getArtworkImageSource>;
+  suggestedArtworkResources: {
+    id: string;
+    modelTitle: string;
+    qrCode: string;
+    relationLabel: string;
+    subtitle: string;
+    title: string;
+  }[];
 };
 
 export function HomeSceneState({
   isImmersiveRoom,
+  isNarrationPlaying,
   isRoomDetected,
   isSuggestionVisible,
+  onAskSuggestedArtwork,
   onCloseSuggestion,
   onExploreOtherSuggestions,
+  onListenSuggestedArtwork,
   onViewSuggestedAr,
   roomName,
   shouldShowSuggestionCta,
   suggestedArtwork,
   suggestedArtworkImageSource,
+  suggestedArtworkResources,
 }: HomeSceneStateProps) {
   if (
     !isImmersiveRoom &&
@@ -40,9 +55,13 @@ export function HomeSceneState({
         <BleSuggestionCard
           artworkTitle={suggestedArtwork.title}
           imageSource={suggestedArtworkImageSource}
+          isNarrationPlaying={isNarrationPlaying}
+          onAsk={onAskSuggestedArtwork}
           onClose={onCloseSuggestion}
           onExploreOther={onExploreOtherSuggestions}
+          onListen={onListenSuggestedArtwork}
           onViewAr={onViewSuggestedAr}
+          resources={suggestedArtworkResources}
         />
       </View>
     );

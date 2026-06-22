@@ -103,19 +103,34 @@ export const museumMock: MuseumMock = {
       statusLabel: "6 obras activas",
       zones: [
         {
-          id: "S1",
-          label: "Beacon S1",
-          narrationHint: "Primera zona BLE: estima si el visitante observa la obra 1 o la obra 2.",
+          id: "Z1",
+          label: "Zona 1 - Obra 1",
+          narrationHint: "Zona BLE de prueba: sugiere la obra 1 y sus dos QR de recursos 3D.",
         },
         {
-          id: "S2",
-          label: "Beacon S2",
-          narrationHint: "Segunda zona BLE: estima si el visitante observa la obra 3 o la obra 4.",
+          id: "Z2",
+          label: "Zona 2 - Obra 2",
+          narrationHint: "Zona BLE de prueba: sugiere la obra 2 y sus dos QR de recursos 3D.",
         },
         {
-          id: "S3",
-          label: "Beacon S3",
-          narrationHint: "Tercera zona BLE: estima si el visitante observa la obra 5 o la obra 6.",
+          id: "Z3",
+          label: "Zona 3 - Obra 3",
+          narrationHint: "Zona BLE de prueba: sugiere la obra 3 y sus dos QR de recursos 3D.",
+        },
+        {
+          id: "Z4",
+          label: "Zona 4 - Obra 4",
+          narrationHint: "Zona BLE de prueba: sugiere la obra 4 y sus dos QR de recursos 3D.",
+        },
+        {
+          id: "Z5",
+          label: "Zona 5 - Obra 5",
+          narrationHint: "Zona BLE de prueba: sugiere la obra 5 y sus dos QR de recursos 3D.",
+        },
+        {
+          id: "Z6",
+          label: "Zona 6 - Obra 6",
+          narrationHint: "Zona BLE de prueba: sugiere la obra 6 y sus dos QR de recursos 3D.",
         },
       ],
     },

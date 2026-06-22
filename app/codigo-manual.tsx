@@ -1,6 +1,7 @@
 import { musePalette } from "@/components/museiq/theme";
 import { hasArtworkModelAsset } from "@/lib/artwork-models";
-import { getArtworkQrCode, resolveArtworkFromQrInput } from "@/lib/qr-codes";
+import { getArResourcesForArtwork } from "@/lib/museum-structure";
+import { getArtworkQrCode, resolveQrExperienceFromInput } from "@/lib/qr-codes";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -33,7 +34,10 @@ export default function CodigoManualScreen() {
   const examples = useMemo(() => {
     const currentExample = currentArtwork ? getArtworkQrCode(currentArtwork) : "";
     const firstExample = artworks[0] ? getArtworkQrCode(artworks[0]) : "";
-    return [...new Set([currentExample, firstExample].filter(Boolean))].slice(0, 2);
+    const resourceExamples = currentArtwork
+      ? getArResourcesForArtwork(currentArtwork.id).map((resource) => resource.qrCode)
+      : [];
+    return [...new Set([...resourceExamples, currentExample, firstExample].filter(Boolean))].slice(0, 3);
   }, [artworks, currentArtwork]);
 
   const submitCode = (value = manualCode) => {
@@ -43,8 +47,8 @@ export default function CodigoManualScreen() {
       return;
     }
 
-    const artwork = resolveArtworkFromQrInput(trimmedCode, artworks);
-    if (!artwork) {
+    const qrExperience = resolveQrExperienceFromInput(trimmedCode, artworks);
+    if (!qrExperience) {
       router.replace({
         pathname: "/qr-invalido",
         params: { code: trimmedCode },
@@ -52,12 +56,17 @@ export default function CodigoManualScreen() {
       return;
     }
 
+    const artwork = qrExperience.artwork;
     selectArtwork(artwork.id);
     router.replace({
       pathname: hasArtworkModelAsset(artwork.id)
         ? "/ar-viro-activo"
         : "/modelo-3d-no-disponible",
-      params: { artworkId: artwork.id },
+      params: {
+        artworkId: artwork.id,
+        resourceId: qrExperience.resource?.id,
+        sourceArtworkId: qrExperience.resource?.parentArtworkId,
+      },
     } as never);
   };
 

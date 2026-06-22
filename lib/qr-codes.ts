@@ -1,39 +1,16 @@
 import type { ArtworkMock } from "@/datos";
-
-const QUERY_KEYS = ["codigo", "code", "obra", "artwork", "artworkId"];
+import {
+  normalizeMuseumCode,
+  normalizeMuseumCodeForMatch,
+  resolveArResourceFromQrInput,
+} from "@/lib/museum-structure";
 
 function compactCode(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
+  return normalizeMuseumCodeForMatch(value);
 }
 
 export function normalizeQrInput(input: string) {
-  const trimmed = input.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  try {
-    const parsedUrl = new URL(trimmed);
-    for (const key of QUERY_KEYS) {
-      const value = parsedUrl.searchParams.get(key);
-      if (value) {
-        return value.trim();
-      }
-    }
-
-    const pathCandidate = parsedUrl.pathname.split("/").filter(Boolean).pop();
-    if (pathCandidate) {
-      return decodeURIComponent(pathCandidate).trim();
-    }
-  } catch {
-    // Plain QR payloads are expected during the MVP.
-  }
-
-  return trimmed;
+  return normalizeMuseumCode(input);
 }
 
 export function getArtworkQrCode(artwork: ArtworkMock) {
@@ -76,4 +53,18 @@ export function resolveArtworkFromQrInput(
       (candidate) => compactCode(candidate) === normalizedInput,
     ),
   );
+}
+
+export function resolveQrExperienceFromInput(
+  input: string,
+  artworks: ArtworkMock[],
+) {
+  const resource = resolveArResourceFromQrInput(input);
+  if (resource) {
+    const artwork = artworks.find((candidate) => candidate.id === resource.modelArtworkId);
+    return artwork ? { artwork, resource } : undefined;
+  }
+
+  const artwork = resolveArtworkFromQrInput(input, artworks);
+  return artwork ? { artwork, resource: undefined } : undefined;
 }

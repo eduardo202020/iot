@@ -50,6 +50,7 @@ export type ChatSheetProps = {
   speakingDisplayText: string;
   speechHighlightRange: { start: number; end: number } | null;
   statusMessage: string;
+  subtitlesEnabled?: boolean;
   suggestedQuestions: string[];
   sources: SourceSnippet[];
   voiceMode: "idle" | "listening" | "review";

@@ -612,6 +612,7 @@ export function useArtworkChatController({
     speakingDisplayText,
     speechHighlightRange,
     statusMessage,
+    subtitlesEnabled: settings.subtitles,
     suggestedQuestions,
     voiceMode,
     voiceStatusMessage,

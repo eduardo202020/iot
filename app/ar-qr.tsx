@@ -1,7 +1,7 @@
 import { arColors } from "@/components/museiq/ar-flow";
 import { musePalette } from "@/components/museiq/theme";
 import { hasArtworkModelAsset } from "@/lib/artwork-models";
-import { resolveArtworkFromQrInput } from "@/lib/qr-codes";
+import { resolveQrExperienceFromInput } from "@/lib/qr-codes";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -56,7 +56,10 @@ export default function ArQrScreen() {
   }, [artworks, currentArtwork]);
 
   const openScannedArtworkExperience = useCallback(
-    (artworkId: string) => {
+    (
+      artworkId: string,
+      options?: { resourceId?: string; sourceArtworkId?: string },
+    ) => {
       const hasModel = hasArtworkModelAsset(artworkId);
       const targetRoute = hasModel ? "/ar-viro-activo" : "/modelo-3d-no-disponible";
 
@@ -64,6 +67,8 @@ export default function ArQrScreen() {
         artworkId,
         event: "safeOpenArtworkExperienceStart",
         hasModel,
+        resourceId: options?.resourceId ?? null,
+        sourceArtworkId: options?.sourceArtworkId ?? null,
         targetRoute,
       }));
       selectArtwork(artworkId);
@@ -82,11 +87,17 @@ export default function ArQrScreen() {
           artworkId,
           event: "safeOpenArtworkExperienceNavigate",
           hasModel,
+          resourceId: options?.resourceId ?? null,
+          sourceArtworkId: options?.sourceArtworkId ?? null,
           targetRoute,
         }));
         router.replace({
           pathname: targetRoute,
-          params: { artworkId },
+          params: {
+            artworkId,
+            resourceId: options?.resourceId,
+            sourceArtworkId: options?.sourceArtworkId,
+          },
         } as never);
       }, 180);
     },
@@ -157,10 +168,13 @@ export default function ArQrScreen() {
       }
 
       scanLockRef.current = true;
-      const artwork = resolveArtworkFromQrInput(data, artworks);
+      const qrExperience = resolveQrExperienceFromInput(data, artworks);
 
-      if (artwork) {
-        openScannedArtworkExperience(artwork.id);
+      if (qrExperience) {
+        openScannedArtworkExperience(qrExperience.artwork.id, {
+          resourceId: qrExperience.resource?.id,
+          sourceArtworkId: qrExperience.resource?.parentArtworkId,
+        });
         return;
       }
 
