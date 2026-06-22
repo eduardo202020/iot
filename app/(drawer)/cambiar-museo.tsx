@@ -23,19 +23,19 @@ const museumOptions: MuseumOption[] = [
   },
   {
     city: "Cusco, Peru",
-    image: require("@/assets/images/artworks/sala-01/02-tumba-principal-de-sipan.png"),
+    image: require("@/assets/images/artworks/mvp-selected/03-aribalo-inca.png"),
     name: "Museo de Sitio Ollantaytambo",
     status: "Disponible proximamente",
   },
   {
     city: "Lima, Peru",
-    image: require("@/assets/images/artworks/sala-01/01-senor-de-sipan.jpg"),
+    image: require("@/assets/images/artworks/mvp-selected/01-musico-moche.png"),
     name: "Museo Larco",
     status: "Disponible proximamente",
   },
   {
     city: "Lambayeque, Peru",
-    image: require("@/assets/images/artworks/sala-01/11-ajuar-de-tumbas-reales.jpg"),
+    image: require("@/assets/images/artworks/mvp-selected/02-botella-chimu-lambayeque.png"),
     name: "Museo Tumbas Reales de Sipan",
     status: "Disponible proximamente",
   },

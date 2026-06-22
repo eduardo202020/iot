@@ -1,14 +1,9 @@
 import cabezaClavaGlb from "@/assets/models/cabeza_clava.glb";
-import cabezaClavaLiteGlb from "@/assets/models/cabeza_clava-2.glb";
-import aribaloGlb from "@/assets/models/catalog/aribalo.glb";
-import aroMochicaGlb from "@/assets/models/catalog/aro_mochica.glb";
-import asientoDelIncaGlb from "@/assets/models/catalog/asiento_del_inca.glb";
 import bastonMochicaGlb from "@/assets/models/catalog/baston_mochica.glb";
 import batanGlb from "@/assets/models/catalog/batan.glb";
 import botellaChimuGlb from "@/assets/models/catalog/botella_de_ceramica_del_estilo_chimu.glb";
 import botellaEscultoricaGlb from "@/assets/models/catalog/botella_escultorica.glb";
 import botellaLambayequeGlb from "@/assets/models/catalog/botella_de_ceramica_de_estilo_lambayeque.glb";
-import buhoArtesaniaGlb from "@/assets/models/catalog/buho-artesania.glb";
 import ceramicaOrnitomorfaMocheGlb from "@/assets/models/catalog/ceramica_ornitomorfa_moche.glb";
 import chavinFigEnteraGlb from "@/assets/models/catalog/chavin-fig-entera.glb";
 import esculturaTalladaGlb from "@/assets/models/catalog/escultura_tallada.glb";
@@ -18,9 +13,14 @@ import huacoRetratoMochicaGlb from "@/assets/models/catalog/huaco_retrato_mochic
 import incaPhotogrammetryGlb from "@/assets/models/catalog/inca_photogrammetry.glb";
 import portadaGlb from "@/assets/models/catalog/portada.glb";
 import recipienteChavinGlb from "@/assets/models/catalog/recipiente_chavin.glb";
-import replicaObeliscoTelloGlb from "@/assets/models/catalog/replica_del_obelisco_tello.glb";
 import s20v112aGlb from "@/assets/models/catalog/s20-v112a.glb";
 import stirrupVesselBirdGlb from "@/assets/models/catalog/stirrup_vessel_in_form_of_a_bird.glb";
+import mvpAribaloIncaGlb from "@/assets/models/catalog/mvp/aribalo_inca.glb";
+import mvpAsientoIncaGlb from "@/assets/models/catalog/mvp/asiento_del_inca.glb";
+import mvpBotellaChavinGlb from "@/assets/models/catalog/mvp/botella_chavin_204002.glb";
+import mvpBotellaChimuLambayequeGlb from "@/assets/models/catalog/mvp/botella_chimu_lambayeque.glb";
+import mvpMusicoMocheGlb from "@/assets/models/catalog/mvp/musico_moche.glb";
+import mvpObeliscoTelloGlb from "@/assets/models/catalog/mvp/obelisco_tello.glb";
 
 export type ArtworkModelDescriptor = {
   asset: number;
@@ -35,28 +35,28 @@ export const DEFAULT_ARTWORK_MODEL: ArtworkModelDescriptor = {
 const artworkModelMap: Record<string, ArtworkModelDescriptor> = {
   // Sala 1
   "obra-1-1-L": {
-    asset: replicaObeliscoTelloGlb,
-    label: "replica_del_obelisco_tello.glb",
+    asset: mvpMusicoMocheGlb,
+    label: "musico_moche.glb",
   },
   "obra-1-1-C": {
-    asset: cabezaClavaLiteGlb,
-    label: "cabeza_clava-2.glb",
+    asset: mvpBotellaChimuLambayequeGlb,
+    label: "botella_chimu_lambayeque.glb",
   },
   "obra-1-1-R": {
-    asset: aroMochicaGlb,
-    label: "aro_mochica.glb",
+    asset: mvpAribaloIncaGlb,
+    label: "aribalo_inca.glb",
   },
   "obra-1-2-L": {
-    asset: buhoArtesaniaGlb,
-    label: "buho-artesania.glb",
+    asset: mvpAsientoIncaGlb,
+    label: "mvp_asiento_del_inca.glb",
   },
   "obra-1-2-C": {
-    asset: asientoDelIncaGlb,
-    label: "asiento_del_inca.glb",
+    asset: mvpBotellaChavinGlb,
+    label: "botella_chavin_204002.glb",
   },
   "obra-1-2-R": {
-    asset: aribaloGlb,
-    label: "aribalo.glb",
+    asset: mvpObeliscoTelloGlb,
+    label: "obelisco_tello.glb",
   },
   "obra-1-3-L": {
     asset: bastonMochicaGlb,

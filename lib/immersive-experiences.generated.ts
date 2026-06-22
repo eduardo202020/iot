@@ -21,7 +21,7 @@ export const immersiveRoomExperiences: RoomImmersiveExperience[] = [
   {
     id: "immersive-sala-1",
     roomId: "SALA_VR",
-    title: "Sala inmersiva Sipan",
+    title: "Sala inmersiva andina",
     promptTitle: "Modo inmersivo disponible",
     description: "Esta sala ofrece una reconstruccion 3D para recorrer el espacio desde dentro antes de continuar con la visita normal.",
     ctaLabel: "Entrar al modo inmersivo",

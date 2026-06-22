@@ -2,31 +2,28 @@
   "SALA_1": {
     "name": "Sala 1",
     "Z1": {
-      "title": "Zona 1 - Introduccion a Sipan",
-      "narration": "Has entrado a la Sala 1. Aqui comienza el relato del Senor de Sipan, su tumba y las primeras insignias de poder que estructuran el recorrido."
+      "title": "Zona 1 - Musico Moche",
+      "narration": "Has entrado a la Sala 1. La primera pieza es un musico Moche modelado en ceramica, testimonio del papel de la musica en ceremonias y actividades colectivas."
     },
     "Z2": {
-      "title": "Zona 2 - Insignias y cuerpo ceremonial",
-      "narration": "Estas en el centro de la Sala 1. En esta zona se concentran aretes, pendientes, textiles, bastones y escenas que explican como el cuerpo del gobernante se convertia en imagen de autoridad."
+      "title": "Zona 2 - Botella Chimu-Lambayeque",
+      "narration": "Esta zona presenta una botella escultorica Chimu-Lambayeque. Observa la figura animal modelada y compara su acabado con la ceramica Moche de la zona anterior."
     },
     "Z3": {
-      "title": "Zona 3 - Ajuar funerario y cierre",
-      "narration": "Te acercas al cierre de la Sala 1. Aqui aparecen ofrendas, ajuar funerario y ceramica de poder que preparan la transicion hacia la segunda sala."
-    }
-  },
-  "SALA_2": {
-    "name": "Sala 2",
-    "Z1": {
-      "title": "Zona 1 - Ornamentos de prestigio",
-      "narration": "Bienvenido a la Sala 2. Esta primera zona presenta collares, coronas y cuchillos ceremoniales para introducir la metalurgia y la autoridad visual del norte peruano."
+      "title": "Zona 3 - Aribalo inca",
+      "narration": "El recorrido continua con un aribalo inca. Su cuello alto, sus asas y su base conica responden a necesidades de transporte, almacenamiento y organizacion."
     },
-    "Z2": {
-      "title": "Zona 2 - Mitos, tocados e iconografia",
-      "narration": "Estas en el centro de la Sala 2. Aqui se cruzan Naylamp, pectorales, tocados, vasos y escenas ceremoniales que muestran como mito, cuerpo y rito forman un mismo lenguaje."
+    "Z4": {
+      "title": "Zona 4 - Asiento del Inca",
+      "narration": "Frente a ti aparece un asiento ceremonial de piedra. La pieza permite observar como la autoridad inca tambien se construia mediante arquitectura y posicion en el espacio."
     },
-    "Z3": {
-      "title": "Zona 3 - Procesion y sintesis final",
-      "narration": "Has llegado al cierre de la Sala 2. La salida resume el recorrido con procesiones, prestigio y una ultima pieza que sintetiza identidad regional y poder visible."
+    "Z5": {
+      "title": "Zona 5 - Botella Chavin",
+      "narration": "Esta botella Chavin de superficie negra pulida presenta felinos estilizados en el asa, el gollete y el cuerpo. Recorre sus detalles para reconocer la composicion."
+    },
+    "Z6": {
+      "title": "Zona 6 - Obelisco Tello",
+      "narration": "El recorrido cierra con el Obelisco Tello. Sus cuatro caras articulan seres, plantas y rasgos animales en una composicion monumental y entrelazada."
     }
   }
 }

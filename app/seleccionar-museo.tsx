@@ -20,27 +20,27 @@ export default function SeleccionarMuseoScreen() {
 
   const museumOptions: MuseumOption[] = [
     {
-      id: museumProfile?.id ?? "trujillo_museo",
+      id: museumProfile?.id ?? "museiq_peru",
       image: require("@/assets/images/fondo.png"),
       location: `${museumProfile?.city ?? "Trujillo"}, ${museumProfile?.country ?? "Peru"}`,
-      name: museumProfile?.name ?? "MuseIQ Trujillo",
+      name: museumProfile?.name ?? "MuseIQ Peru",
       selected: true,
     },
     {
       id: "museo-nacional-chavin",
-      image: require("@/assets/images/artworks/sala-01/02-tumba-principal-de-sipan.png"),
+      image: require("@/assets/images/artworks/mvp-selected/05-botella-chavin-204002.png"),
       location: "Ancash, Peru",
       name: "Museo Nacional Chavin",
     },
     {
       id: "museo-sitio-ollantaytambo",
-      image: require("@/assets/images/artworks/sala-02/04-figura-mitica-de-naylamp.jpg"),
+      image: require("@/assets/images/artworks/mvp-selected/03-aribalo-inca.png"),
       location: "Cusco, Peru",
       name: "Museo de Sitio Ollantaytambo",
     },
     {
       id: "museo-larco",
-      image: require("@/assets/images/artworks/sala-02/09-escena-de-procesion-ritual.jpg"),
+      image: require("@/assets/images/artworks/mvp-selected/01-musico-moche.png"),
       location: "Lima, Peru",
       name: "Museo Larco",
     },

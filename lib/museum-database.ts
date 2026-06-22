@@ -66,7 +66,7 @@ export interface AnalyticsSummary {
 }
 
 const DATABASE_NAME = "museiq.db";
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 5;
 
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
