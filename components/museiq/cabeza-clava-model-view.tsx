@@ -1541,7 +1541,7 @@ export function CabezaClavaModelView({
           elapsedMs: Date.now() - loadStartedAt,
         });
       } else {
-        normalizeModel(model, 2.55);
+        model = normalizeModel(model, 2.55);
         modelBaseScale = model.scale.clone();
         cameraFit = fitCameraToObject(camera, model, width / height);
       }
@@ -2734,9 +2734,13 @@ function normalizeModel(model: THREE.Object3D, targetSize: number) {
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
   const maxDimension = Math.max(size.x, size.y, size.z) || 1;
+  const pivot = new THREE.Group();
 
   model.position.sub(center);
-  model.scale.setScalar(targetSize / maxDimension);
+  pivot.add(model);
+  pivot.scale.setScalar(targetSize / maxDimension);
+
+  return pivot;
 }
 
 function fitCameraToObject(
