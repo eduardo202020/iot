@@ -1,6 +1,10 @@
 import { SourceImageCarousel } from "@/components/museiq/chat/source-image-carousel";
 import { musePalette } from "@/components/museiq/theme";
-import type { MuseRagResponseMeta, SourceSnippet } from "@/lib/muserag-api";
+import {
+  formatMuseRagSource,
+  type MuseRagResponseMeta,
+  type SourceSnippet,
+} from "@/lib/muserag-api";
 import { Ionicons } from "@expo/vector-icons";
 import Markdown from "react-native-markdown-display";
 import { useEffect, useState } from "react";
@@ -377,20 +381,13 @@ export function ChatSheet({
             <View style={styles.sourceSummaryBlock}>
               <Text style={styles.sourceSummaryTitle}>Base de la respuesta</Text>
               {sourcePreviews.map((source) => {
-                const page =
-                  source.metadata && typeof source.metadata.page === "number"
-                    ? `Pág. ${source.metadata.page}`
-                    : null;
-                const figureRef =
-                  source.metadata && typeof source.metadata.figure_ref === "string"
-                    ? source.metadata.figure_ref
-                    : null;
+                const reference = formatMuseRagSource(source);
 
                 return (
                   <View key={source.id} style={styles.sourceSummaryCard}>
                     <View style={styles.sourceSummaryHeader}>
                       <Text style={styles.sourceSummaryLabel}>
-                        {source.source_label ?? "Fuente"}
+                        {reference.title}
                       </Text>
                       <Text style={styles.sourceSummaryScore}>
                         {`${Math.round(source.score * 100)}%`}
@@ -399,9 +396,9 @@ export function ChatSheet({
                     <Text numberOfLines={2} style={styles.sourceSummaryText}>
                       {source.text}
                     </Text>
-                    {(page || figureRef) ? (
+                    {reference.meta ? (
                       <Text style={styles.sourceSummaryMeta}>
-                        {[page, figureRef].filter(Boolean).join(" · ")}
+                        {reference.meta}
                       </Text>
                     ) : null}
                   </View>

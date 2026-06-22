@@ -41,6 +41,54 @@ export interface SourceSnippet {
   metadata?: Record<string, unknown>;
 }
 
+export interface MuseRagSourceReference {
+  title: string;
+  meta: string;
+}
+
+function metadataText(metadata: Record<string, unknown> | undefined, key: string) {
+  const value = metadata?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function metadataNumber(metadata: Record<string, unknown> | undefined, key: string) {
+  const value = metadata?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+export function formatMuseRagSource(source: SourceSnippet): MuseRagSourceReference {
+  const metadata = source.metadata;
+  const title = metadataText(metadata, 'title') || source.source_label || 'Fuente';
+  const author = metadataText(metadata, 'author');
+  const locatorLabel = metadataText(metadata, 'locator_label');
+  const page = metadataNumber(metadata, 'page');
+  const pageStart = metadataNumber(metadata, 'page_start');
+  const pageEnd = metadataNumber(metadata, 'page_end');
+  const sectionStart = metadataNumber(metadata, 'section_start');
+  const sectionEnd = metadataNumber(metadata, 'section_end');
+  const figureRef = metadataText(metadata, 'figure_ref');
+
+  let locator = locatorLabel;
+  if (!locator && page !== null) {
+    locator = `Pag. ${page}`;
+  } else if (!locator && pageStart !== null) {
+    locator =
+      pageEnd !== null && pageEnd !== pageStart
+        ? `Pags. ${pageStart}-${pageEnd}`
+        : `Pag. ${pageStart}`;
+  } else if (!locator && sectionStart !== null) {
+    locator =
+      sectionEnd !== null && sectionEnd !== sectionStart
+        ? `Secciones ${sectionStart}-${sectionEnd}`
+        : `Seccion ${sectionStart}`;
+  }
+
+  return {
+    title,
+    meta: [author, locator, figureRef].filter(Boolean).join(' · '),
+  };
+}
+
 export interface MuseRagResponseMeta {
   total_ms: number;
   retrieval_ms: number;

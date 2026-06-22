@@ -7,6 +7,7 @@ import {
 import { ZoomImageViewer } from "@/components/museiq/chat/zoom-image-viewer";
 import { musePalette } from "@/components/museiq/theme";
 import { useArtworkChatController } from "@/hooks/use-artwork-chat-controller";
+import { formatMuseRagSource } from "@/lib/muserag-api";
 import { useMuseIQ } from "@/providers/museiq-provider";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -196,39 +197,44 @@ export default function ArChatIaScreen() {
                 </Text>
               ) : null}
 
-              {chatSheetProps.sources.slice(0, 3).map((source) => (
-                <Pressable
-                  key={source.id}
-                  onPress={() => {
-                    const sourceImages = chatSheetProps.sources
-                      .filter((item) => item.image_url)
-                      .map((item, index) => ({
-                        id: item.id,
-                        uri: item.image_url as string,
-                        label: item.source_label ?? `Fuente ${index + 1}`,
-                      }));
+              {chatSheetProps.sources.slice(0, 3).map((source) => {
+                const reference = formatMuseRagSource(source);
+                return (
+                  <Pressable
+                    key={source.id}
+                    onPress={() => {
+                      const sourceImages = chatSheetProps.sources
+                        .filter((item) => item.image_url)
+                        .map((item, index) => ({
+                          id: item.id,
+                          uri: item.image_url as string,
+                          label:
+                            formatMuseRagSource(item).title || `Fuente ${index + 1}`,
+                        }));
 
-                    const imageIndex = sourceImages.findIndex(
-                      (item) => item.id === source.id,
-                    );
+                      const imageIndex = sourceImages.findIndex(
+                        (item) => item.id === source.id,
+                      );
 
-                    if (sourceImages.length && imageIndex >= 0) {
-                      chatSheetProps.onOpenImage(sourceImages, imageIndex);
-                    }
-                  }}
-                  style={({ pressed }) => [
-                    styles.sourceCard,
-                    pressed ? styles.pressed : null,
-                  ]}
-                >
-                  <Text style={styles.sourceLabel}>
-                    {source.source_label ?? "Fuente"}
-                  </Text>
-                  <Text numberOfLines={2} style={styles.sourceText}>
-                    {source.text}
-                  </Text>
-                </Pressable>
-              ))}
+                      if (sourceImages.length && imageIndex >= 0) {
+                        chatSheetProps.onOpenImage(sourceImages, imageIndex);
+                      }
+                    }}
+                    style={({ pressed }) => [
+                      styles.sourceCard,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text style={styles.sourceLabel}>{reference.title}</Text>
+                    {reference.meta ? (
+                      <Text style={styles.sourceMeta}>{reference.meta}</Text>
+                    ) : null}
+                    <Text numberOfLines={2} style={styles.sourceText}>
+                      {source.text}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
           </View>
 
@@ -433,6 +439,12 @@ const styles = StyleSheet.create({
     color: arColors.primary,
     fontSize: 12,
     fontWeight: "800",
+  },
+  sourceMeta: {
+    color: "rgba(255,255,255,0.58)",
+    fontSize: 10,
+    fontWeight: "600",
+    lineHeight: 14,
   },
   sourceText: {
     color: "rgba(255,255,255,0.74)",
