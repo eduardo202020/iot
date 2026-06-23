@@ -1,6 +1,6 @@
 import { BleSuggestionCard } from "@/components/museiq/home/ble-suggestion-card";
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 type HomeSceneStateProps = {
   isImmersiveRoom: boolean;
@@ -51,18 +51,26 @@ export function HomeSceneState({
     suggestedArtwork
   ) {
     return (
-      <View style={styles.sceneLayer}>
-        <BleSuggestionCard
-          artworkTitle={suggestedArtwork.title}
-          imageSource={suggestedArtworkImageSource}
-          isNarrationPlaying={isNarrationPlaying}
-          onAsk={onAskSuggestedArtwork}
-          onClose={onCloseSuggestion}
-          onExploreOther={onExploreOtherSuggestions}
-          onListen={onListenSuggestedArtwork}
-          onViewAr={onViewSuggestedAr}
-          resources={suggestedArtworkResources}
-        />
+      <View style={[styles.sceneLayer, styles.suggestionSceneLayer]}>
+        <ScrollView
+          bounces={false}
+          contentContainerStyle={styles.suggestionScrollContent}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={false}
+          style={styles.suggestionScroll}
+        >
+          <BleSuggestionCard
+            artworkTitle={suggestedArtwork.title}
+            imageSource={suggestedArtworkImageSource}
+            isNarrationPlaying={isNarrationPlaying}
+            onAsk={onAskSuggestedArtwork}
+            onClose={onCloseSuggestion}
+            onExploreOther={onExploreOtherSuggestions}
+            onListen={onListenSuggestedArtwork}
+            onViewAr={onViewSuggestedAr}
+            resources={suggestedArtworkResources}
+          />
+        </ScrollView>
       </View>
     );
   }
@@ -119,6 +127,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 26,
+  },
+  suggestionSceneLayer: {
+    justifyContent: "flex-start",
+    minHeight: 0,
+    overflow: "hidden",
+    paddingBottom: 8,
+    paddingTop: 8,
+  },
+  suggestionScroll: {
+    flex: 1,
+    width: "100%",
+  },
+  suggestionScrollContent: {
+    paddingBottom: 8,
   },
   searchingCard: {
     alignItems: "center",
