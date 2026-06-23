@@ -244,3 +244,36 @@ El reconocimiento automatico de obra queda planteado como hipótesis contextual:
 - Cliente de MuseRAG: [lib/muserag-api.ts](lib/muserag-api.ts)
 - Pipeline 3D y tours: [../muse3d/README.md](../muse3d/README.md)
 - QA flujo QR/AR: [docs/qa/ar-qr-flow.md](docs/qa/ar-qr-flow.md)
+
+## Pruebas en Windows (PowerShell)
+
+Instalacion y validaciones desde la copia canonica:
+
+```powershell
+cd C:\Users\pc\Documents\proyectos\Museiq\museApp
+npm ci
+npm run lint
+npm run qa:ar
+npx tsc --noEmit
+```
+
+Para probar en Android con el Development Build, usa la IP LAN actual de la PC
+en `.env` y arranca Metro:
+
+```powershell
+cd C:\Users\pc\Documents\proyectos\Museiq\museApp
+ipconfig
+$env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.18.84"
+$env:EXPO_PUBLIC_MUSERAG_URL="http://192.168.18.84:8000"
+$env:EXPO_PUBLIC_MUSEIQ_BLE_SIM_URL="http://192.168.18.84:8787"
+npx expo start --dev-client --lan -c
+```
+
+Reemplaza `192.168.18.84` si `ipconfig` muestra otra IPv4. El telefono y la PC
+deben estar en la misma red. Para una revision de interfaz sin BLE/AR nativo:
+
+```powershell
+npm run web
+```
+
+Usa `Ctrl+C` para cerrar Metro.
