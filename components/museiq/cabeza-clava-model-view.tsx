@@ -105,6 +105,18 @@ function warn3d(...args: Parameters<typeof console.warn>) {
   }
 }
 
+const IMMERSIVE_SKY_FALLBACK_COLOR = 0x8db8d2;
+const IMMERSIVE_TERRAIN_FALLBACK_COLOR = 0xb89f73;
+
+function createExpoTextureImage(asset: EmbeddedTextureAsset) {
+  return {
+    height: asset.height,
+    localUri: asset.localUri,
+    uri: asset.localUri,
+    width: asset.width,
+  };
+}
+
 export const getCabezaClavaModelAssetForArtwork = getArtworkModelAssetForArtwork;
 
 export function prepareCabezaClavaModel(
@@ -1271,6 +1283,9 @@ export function CabezaClavaModelView({
       const width = gl.drawingBufferWidth;
       const height = gl.drawingBufferHeight;
       const scene = new THREE.Scene();
+      if (isImmersive) {
+        scene.background = new THREE.Color(IMMERSIVE_SKY_FALLBACK_COLOR);
+      }
       const eyeAspectRatio = usesStereo ? width / 2 / height : width / height;
       const camera = new THREE.PerspectiveCamera(
         isImmersive ? (immersiveSubject === "space" ? 50 : 38) : 44,
@@ -2157,11 +2172,7 @@ async function writeEmbeddedTextureFile(
 function createTextureFromEmbeddedAsset(asset: EmbeddedTextureAsset) {
   const texture = new THREE.Texture();
 
-  texture.image = {
-    data: asset,
-    height: asset.height,
-    width: asset.width,
-  } as never;
+  texture.image = createExpoTextureImage(asset) as never;
   texture.flipY = false;
   texture.generateMipmaps = true;
   texture.magFilter = THREE.LinearFilter;
@@ -2170,7 +2181,6 @@ function createTextureFromEmbeddedAsset(asset: EmbeddedTextureAsset) {
   texture.wrapT = THREE.RepeatWrapping;
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
-  (texture as unknown as { isDataTexture: boolean }).isDataTexture = true;
 
   return texture;
 }
@@ -2239,11 +2249,7 @@ function createRuntimeTexture(
 ) {
   const texture = new THREE.Texture();
 
-  texture.image = {
-    data: asset,
-    height: asset.height,
-    width: asset.width,
-  } as never;
+  texture.image = createExpoTextureImage(asset) as never;
   texture.colorSpace = colorSpace;
   texture.flipY = false;
   texture.generateMipmaps = useMipmaps;
@@ -2253,22 +2259,28 @@ function createRuntimeTexture(
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.needsUpdate = true;
-  (texture as unknown as { isDataTexture: boolean }).isDataTexture = true;
 
   return texture;
 }
 
 async function createSkyDome(assetModule: SkyTextureAsset, radius: number) {
-  const asset = await loadSkyTextureAsset(assetModule);
-  const texture = createRuntimeTexture(asset, {
-    colorSpace: THREE.SRGBColorSpace,
-    useMipmaps: false,
-  });
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
+  let texture: THREE.Texture | undefined;
+
+  try {
+    const asset = await loadSkyTextureAsset(assetModule);
+    texture = createRuntimeTexture(asset, {
+      colorSpace: THREE.SRGBColorSpace,
+      useMipmaps: false,
+    });
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+  } catch (error) {
+    warn3d("[MuseIQ][3D] Usando cielo de color por fallback", error);
+  }
 
   const geometry = new THREE.SphereGeometry(radius, 48, 24);
   const material = new THREE.MeshBasicMaterial({
+    color: texture ? 0xffffff : IMMERSIVE_SKY_FALLBACK_COLOR,
     depthWrite: false,
     map: texture,
     side: THREE.BackSide,
@@ -2289,26 +2301,34 @@ async function createImmersiveTerrainGround(
   model.updateWorldMatrix(true, true);
   const box = new THREE.Box3().setFromObject(model);
   const terrainFootprint = getImmersiveTerrainFootprint(box, rig);
-  const [diffuseAsset, roughnessAsset, normalAsset] = await Promise.all([
-    loadTerrainTextureAsset(immersiveTerrainTextures.diffuse),
-    loadTerrainTextureAsset(immersiveTerrainTextures.roughness),
-    loadTerrainTextureAsset(immersiveTerrainTextures.normal),
-  ]);
-  const map = createRuntimeTexture(diffuseAsset, {
-    colorSpace: THREE.SRGBColorSpace,
-    repeat: terrainFootprint.repeat,
-  });
-  const roughnessMap = createRuntimeTexture(roughnessAsset, {
-    repeat: terrainFootprint.repeat,
-  });
-  const normalMap = createRuntimeTexture(normalAsset, {
-    repeat: terrainFootprint.repeat,
-  });
   const anisotropy = Math.max(1, Math.min(maxAnisotropy, IMMERSIVE_TEXTURE_MAX_ANISOTROPY));
+  let map: THREE.Texture | undefined;
+  let roughnessMap: THREE.Texture | undefined;
+  let normalMap: THREE.Texture | undefined;
 
-  map.anisotropy = anisotropy;
-  roughnessMap.anisotropy = anisotropy;
-  normalMap.anisotropy = anisotropy;
+  try {
+    const [diffuseAsset, roughnessAsset, normalAsset] = await Promise.all([
+      loadTerrainTextureAsset(immersiveTerrainTextures.diffuse),
+      loadTerrainTextureAsset(immersiveTerrainTextures.roughness),
+      loadTerrainTextureAsset(immersiveTerrainTextures.normal),
+    ]);
+    map = createRuntimeTexture(diffuseAsset, {
+      colorSpace: THREE.SRGBColorSpace,
+      repeat: terrainFootprint.repeat,
+    });
+    roughnessMap = createRuntimeTexture(roughnessAsset, {
+      repeat: terrainFootprint.repeat,
+    });
+    normalMap = createRuntimeTexture(normalAsset, {
+      repeat: terrainFootprint.repeat,
+    });
+
+    map.anisotropy = anisotropy;
+    roughnessMap.anisotropy = anisotropy;
+    normalMap.anisotropy = anisotropy;
+  } catch (error) {
+    warn3d("[MuseIQ][3D] Usando terreno de color por fallback", error);
+  }
 
   const geometry = new THREE.PlaneGeometry(
     terrainFootprint.size,
@@ -2317,15 +2337,17 @@ async function createImmersiveTerrainGround(
     2,
   );
   const material = new THREE.MeshStandardMaterial({
-    color: 0xd7c8ae,
+    color: map ? 0xd7c8ae : IMMERSIVE_TERRAIN_FALLBACK_COLOR,
     map,
     metalness: 0,
     normalMap,
     roughness: 0.96,
     roughnessMap,
-    side: THREE.FrontSide,
+    side: THREE.DoubleSide,
   });
-  material.normalScale.set(0.35, 0.35);
+  if (normalMap) {
+    material.normalScale.set(0.35, 0.35);
+  }
 
   const ground = new THREE.Mesh(geometry, material);
   ground.name = "MuseIQ_RockyTerrain";
@@ -2381,13 +2403,29 @@ function getImmersiveTerrainFootprint(
     modelSize.y * IMMERSIVE_TERRAIN_Y_LIFT_RATIO,
     IMMERSIVE_TERRAIN_Y_LIFT_MIN,
   );
+  const modelGroundY = box.min.y + lift;
+  const tourGroundY = getImmersiveTourGroundY(rig);
 
   return {
     center: new THREE.Vector3((minX + maxX) / 2, 0, (minZ + maxZ) / 2),
-    groundY: box.min.y + lift,
+    groundY: tourGroundY === undefined ? modelGroundY : Math.max(modelGroundY, tourGroundY),
     repeat: Math.max(12, Math.round(terrainSize / IMMERSIVE_TERRAIN_REPEAT_METERS)),
     size: terrainSize,
   };
+}
+
+function getImmersiveTourGroundY(rig: ImmersiveCameraRig) {
+  if (rig.tourPoints.length === 0) {
+    return undefined;
+  }
+
+  const candidates = rig.tourPoints.flatMap((point) => [
+    point.position.y - 1.55,
+    point.target.y - 0.16,
+  ]);
+  const groundY = Math.min(...candidates);
+
+  return Number.isFinite(groundY) ? groundY : undefined;
 }
 
 function createBufferAttribute(

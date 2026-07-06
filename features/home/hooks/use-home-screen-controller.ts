@@ -29,6 +29,9 @@ const SUGGESTION_AUTO_NARRATION_DELAY_MS = 3600;
 const fallbackImmersiveRoom = museumMock.rooms.find(
   (room) => room.id === MVP_IMMERSIVE_ROOM_ID,
 );
+const fallbackNormalRoom = museumMock.rooms.find(
+  (room) => room.id === MVP_NORMAL_ROOM_ID,
+);
 
 function parseHeadingDegrees(headingState?: string | null) {
   const match = headingState?.match(/-?\d+/);
@@ -169,18 +172,28 @@ export function useHomeScreenController() {
     () => (activeRoom ? getArtworksForRoom(activeRoom.id) : []),
     [activeRoom, getArtworksForRoom],
   );
+  const normalRoomArtworks = useMemo(
+    () => getArtworksForRoom(MVP_NORMAL_ROOM_ID),
+    [getArtworksForRoom],
+  );
   const roomImmersiveExperiences = useMemo(
     () => (activeRoom ? getRoomImmersiveExperiences(activeRoom.id) : []),
     [activeRoom],
   );
-  const immersiveExperiences = activeRoom
-    ? roomImmersiveExperiences
-    : getAllRoomImmersiveExperiences();
+  const mvpImmersiveExperiences = useMemo(
+    () => getRoomImmersiveExperiences(MVP_IMMERSIVE_ROOM_ID),
+    [],
+  );
   const isImmersiveRoom =
     isRoomDetected &&
     Boolean(activeRoom) &&
     (activeRoom?.id === MVP_IMMERSIVE_ROOM_ID ||
-      (roomArtworks.length === 0 && immersiveExperiences.length > 0));
+      (roomArtworks.length === 0 && roomImmersiveExperiences.length > 0));
+  const immersiveExperiences = isImmersiveRoom
+    ? roomImmersiveExperiences
+    : mvpImmersiveExperiences.length > 0
+      ? mvpImmersiveExperiences
+      : getAllRoomImmersiveExperiences();
   const suggestedArtwork = useMemo(() => {
     if (roomArtworks.length > 0) {
       return getLikelyArtworkFromRoom(
@@ -208,6 +221,12 @@ export function useHomeScreenController() {
   const shouldShowSuggestionCta = hasNearbySuggestion && !isSuggestionDismissed;
   const museumName = museumProfile?.name ?? "MuseIQ";
   const roomName = activeRoom?.name ?? "Buscando sala";
+  const immersiveRoomName = isImmersiveRoom
+    ? roomName
+    : fallbackImmersiveRoom?.name ?? "Sala VR";
+  const exploreRoomArtworks = roomArtworks.length > 0 ? roomArtworks : normalRoomArtworks;
+  const exploreRoomName =
+    roomArtworks.length > 0 ? roomName : fallbackNormalRoom?.name ?? "Sala 1";
   const activeRoomId = activeRoom?.id;
   const topRoomLabel = isRoomDetected ? roomName : "Reconociendo sala";
   const centralLabel = isImmersiveRoom
@@ -508,10 +527,13 @@ export function useHomeScreenController() {
     isSuggestionVisible,
     isTorchOn,
     museumName,
+    exploreRoomArtworks,
+    exploreRoomName,
     repeatArtworkNarration,
     roomArtworks,
     roomName,
     immersiveExperiences,
+    immersiveRoomName,
     sensorPanelProps: {
       accelerometerStatus,
       bleStatus: bleError ? `error - ${bleError}` : bleStatusLabel,

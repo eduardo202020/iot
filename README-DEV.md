@@ -107,6 +107,9 @@ En la raíz del proyecto crea `.env` con la URL accesible desde el móvil:
 EXPO_PUBLIC_MUSERAG_URL=http://192.168.1.10:8000
 ```
 
+Para el MVP Raspberry Pi, puedes partir de `.env.raspberry.example` y reemplazar
+`IP_RASPBERRY` por la IP LAN que devuelve `hostname -I` en la Pi.
+
 Notas:
 
 - no uses `localhost` si el teléfono va a llamar al backend por Wi-Fi
@@ -148,11 +151,21 @@ Variables base esperadas en el backend:
 
 ```env
 LM_STUDIO_BASE_URL=http://127.0.0.1:1234/v1
+LM_STUDIO_API_KEY=lm-studio
 LM_STUDIO_CHAT_MODEL=qwen2.5-7b-instruct
 LM_STUDIO_EMBED_MODEL=text-embedding-nomic-embed-text-v1.5
+MUSERAG_CHAT_BASE_URL=
+MUSERAG_CHAT_API_KEY=
+MUSERAG_CHAT_MODEL=
+MUSERAG_EMBED_BASE_URL=
+MUSERAG_EMBED_API_KEY=
+MUSERAG_EMBED_MODEL=
 MUSERAG_HOST=0.0.0.0
 MUSERAG_PORT=8000
 ```
+
+En Raspberry Pi, define `MUSERAG_CHAT_*` y `MUSERAG_EMBED_*` con el proveedor remoto
+OpenAI-compatible. Asi no necesitas LM Studio en Windows para el demo.
 
 ### Ingesta
 
@@ -182,14 +195,14 @@ curl http://127.0.0.1:8000/health
 ### LAN en Linux
 
 ```bash
-cd /home/eduardo/proyectos/iot/museiq/museiqApp
+cd /home/eduardo/proyectos/MuseIQ/museApp
 npx expo start --dev-client --host lan -c
 ```
 
 También puedes usar el script del package:
 
 ```bash
-cd /home/eduardo/proyectos/iot/museiq/museiqApp
+cd /home/eduardo/proyectos/MuseIQ/museApp
 npm run dev:client:lan
 ```
 
@@ -198,7 +211,7 @@ npm run dev:client:lan
 Si trabajas desde Windows, ajusta la IP de tu PC antes de iniciar Metro:
 
 ```powershell
-cd C:\ruta\al\repo\museiqApp
+cd C:\ruta\al\repo\museApp
 $env:REACT_NATIVE_PACKAGER_HOSTNAME="192.168.1.10"
 npx expo start --dev-client --lan --port 8081
 ```
@@ -206,13 +219,13 @@ npx expo start --dev-client --lan --port 8081
 Si trabajas desde WSL2 y necesitas exponer Metro hacia Windows, usa el script incluido:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\eduardo\proyectos\iot\museiq\iot\scripts\expo-wsl-portproxy.ps1"
+powershell -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\eduardo\proyectos\MuseIQ\museApp\scripts\expo-wsl-portproxy.ps1"
 ```
 
 Luego en WSL:
 
 ```bash
-cd /home/eduardo/proyectos/iot/museiq/museiqApp
+cd /home/eduardo/proyectos/MuseIQ/museApp
 npm run dev:client:lan
 ```
 
@@ -254,14 +267,14 @@ Para el MVP, los `Room ID` esperados son `SALA_1` y `SALA_VR`. En `SALA_1`, `Bea
 Para probar el recorrido sin ESP32 físicos:
 
 ```bash
-cd /home/eduardo/proyectos/iot/museiq/iot-museiq
+cd /home/eduardo/proyectos/MuseIQ/iot-museiq
 python dev_location_bridge.py --host 0.0.0.0 --port 8787
 ```
 
 Luego inicia la app:
 
 ```bash
-cd /home/eduardo/proyectos/iot/museiq/museiqApp
+cd /home/eduardo/proyectos/MuseIQ/museApp
 npx expo start --dev-client --host lan -c
 ```
 
@@ -343,7 +356,9 @@ Ocurre si levantas `uvicorn app.main:app` fuera de la carpeta `museRAG`.
 
 ### La app intenta usar `*.exp.direct:8000`
 
-Eso indica que la URL del backend quedó mal resuelta. Corrige `EXPO_PUBLIC_MUSERAG_URL` con la IP real de la PC y reinicia Expo.
+Eso indica que la URL del backend quedó mal resuelta. Corrige `EXPO_PUBLIC_MUSERAG_URL` con la IP real del equipo que ejecuta MuseRAG y reinicia Expo.
+
+Si MuseRAG corre en Raspberry Pi, usa la IP de la Raspberry, no la IP de la PC.
 
 ### Expo LAN no conecta
 

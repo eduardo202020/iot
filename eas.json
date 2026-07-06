@@ -17,6 +17,17 @@
         "buildType": "apk"
       }
     },
+    "production-apk": {
+      "autoIncrement": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_MUSERAG_URL": "http://10.135.53.38:8000",
+        "EXPO_PUBLIC_MUSEIQ_BLE_SIM_URL": "http://10.135.53.38:8787"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "android": {

@@ -24,7 +24,10 @@ export default function HomeScreen() {
     debugModeEnabled,
     dismissImmersivePrompt,
     dismissSuggestion,
+    exploreRoomArtworks,
+    exploreRoomName,
     immersiveExperiences,
+    immersiveRoomName,
     isArtworkNarrationPlaying,
     isImmersiveRoom,
     isRoomDetected,
@@ -39,7 +42,6 @@ export default function HomeScreen() {
     openManualCodeEntry,
     openQrScanner,
     repeatArtworkNarration,
-    roomArtworks,
     roomName,
     sensorPanelProps,
     setIsTorchOn,
@@ -139,8 +141,8 @@ export default function HomeScreen() {
           isRoomDetected={isRoomDetected}
           onArtworkPress={openArtworkDetail}
           onClose={closeQrScanner}
-          roomArtworks={roomArtworks}
-          roomName={roomName}
+          roomArtworks={exploreRoomArtworks}
+          roomName={exploreRoomName}
           visitedArtworkIds={visitedArtworkIds}
         />
       ) : null}
@@ -150,7 +152,7 @@ export default function HomeScreen() {
           experiences={immersiveExperiences}
           onClose={dismissImmersivePrompt}
           onEnter={openImmersiveExperience}
-          roomName={roomName}
+          roomName={immersiveRoomName}
         />
       ) : null}
 
