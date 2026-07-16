@@ -1,5 +1,6 @@
 import { useHomeBleStatus } from "@/hooks/use-home-ble-status";
 import { useHomeSensors } from "@/hooks/use-home-sensors";
+import type { SensorBeaconReading } from "@/components/museiq/home/sensor-panel";
 import { getArtworkImageSource } from "@/lib/artwork-images";
 import {
   getAllRoomImmersiveExperiences,
@@ -15,6 +16,8 @@ import {
   getArResourceById,
   getArResourcesForArtwork,
   getDefaultArResourceForArtwork,
+  MVP_NORMAL_ROOM_ZONES,
+  type NormalRoomZone,
 } from "@/lib/museum-structure";
 import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
 import type { BeaconData } from "@/types/beacon";
@@ -91,6 +94,51 @@ function getLikelyArtworkFromRoom(
   return candidates[0];
 }
 
+function getBeaconReading(beacon: BeaconData): SensorBeaconReading {
+  const room = beacon.roomId === MVP_IMMERSIVE_ROOM_ID ? "Sala VR" : beacon.roomId.replace("_", " ");
+  const zone = beacon.zoneId ?? `Nodo ${beacon.beaconNode}`;
+
+  return {
+    id: beacon.id,
+    label: `${room} · ${zone}`,
+    rssi: beacon.rssi,
+  };
+}
+
+function createManualBeacon(zone: NormalRoomZone): BeaconData {
+  return {
+    battery: 0,
+    beaconNode: zone.beaconNode,
+    deviceAddress: "MANUAL:HOME",
+    firmwareMajor: 0,
+    firmwareMinor: 0,
+    firmwareVersion: "manual",
+    id: `MANUAL-${zone.zoneId}`,
+    isActive: true,
+    lastSeen: Date.now(),
+    rssi: 0,
+    roomId: zone.roomId,
+    source: "manual",
+    txPower: 0,
+    txPowerPayload: 0,
+    artworkId: zone.artworkId,
+    zoneId: zone.zoneId,
+    zoneLabel: zone.label,
+  };
+}
+
+function getZoneIndexForBeacon(beacon?: BeaconData) {
+  if (!beacon || beacon.roomId !== MVP_NORMAL_ROOM_ID) {
+    return undefined;
+  }
+
+  const index = MVP_NORMAL_ROOM_ZONES.findIndex(
+    (zone) => zone.artworkId === beacon.artworkId || zone.beaconNode === beacon.beaconNode,
+  );
+
+  return index >= 0 ? index : undefined;
+}
+
 export function useHomeScreenController() {
   const isFocused = useIsFocused();
   const {
@@ -112,6 +160,7 @@ export function useHomeScreenController() {
     visitedArtworkIds,
   } = useMuseIQ();
   const {
+    beacons,
     bleStatusLabel,
     dominantBeacon,
     error: bleError,
@@ -130,41 +179,57 @@ export function useHomeScreenController() {
   const [isSuggestionVisible, setIsSuggestionVisible] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [isSensorPanelOpen, setIsSensorPanelOpen] = useState(false);
+  const [manualZoneIndex, setManualZoneIndex] = useState<number | null>(null);
   const autoNarratedSuggestionIdsRef = useRef<Set<string>>(new Set());
   const lastAppliedRoomIdRef = useRef<string | null>(null);
 
+  const physicalZoneIndex = getZoneIndexForBeacon(dominantBeacon);
+  const activeManualZoneIndex = manualZoneIndex ?? physicalZoneIndex ?? 0;
+  const manualZone = MVP_NORMAL_ROOM_ZONES[activeManualZoneIndex];
+  const effectiveBeacon = useMemo(
+    () => (manualZoneIndex === null ? dominantBeacon : createManualBeacon(manualZone)),
+    [dominantBeacon, manualZone, manualZoneIndex],
+  );
+
+  const moveManualZone = (direction: -1 | 1) => {
+    setManualZoneIndex((currentIndex) => {
+      const baseIndex = currentIndex ?? physicalZoneIndex ?? 0;
+      return (baseIndex + direction + MVP_NORMAL_ROOM_ZONES.length) % MVP_NORMAL_ROOM_ZONES.length;
+    });
+  };
+
   useEffect(() => {
-    if (!isFocused || !dominantBeacon?.roomId) {
+    if (!isFocused || !effectiveBeacon?.roomId) {
       return;
     }
 
     if (
-      lastAppliedRoomIdRef.current === dominantBeacon.roomId &&
-      currentRoom?.id === dominantBeacon.roomId
+      lastAppliedRoomIdRef.current === effectiveBeacon.roomId &&
+      currentRoom?.id === effectiveBeacon.roomId
     ) {
       return;
     }
 
-    lastAppliedRoomIdRef.current = dominantBeacon.roomId;
-    setCurrentRoomById(dominantBeacon.roomId);
-  }, [currentRoom?.id, dominantBeacon?.roomId, isFocused, setCurrentRoomById]);
+    lastAppliedRoomIdRef.current = effectiveBeacon.roomId;
+    setCurrentRoomById(effectiveBeacon.roomId);
+  }, [currentRoom?.id, effectiveBeacon?.roomId, isFocused, setCurrentRoomById]);
 
   const detectedRoom = useMemo(() => {
-    if (!dominantBeacon?.roomId) {
+    if (!effectiveBeacon?.roomId) {
       return null;
     }
 
-    const providerRoom = findRoomById(dominantBeacon.roomId);
+    const providerRoom = findRoomById(effectiveBeacon.roomId);
     if (providerRoom) {
       return providerRoom;
     }
 
-    if (dominantBeacon.roomId === MVP_IMMERSIVE_ROOM_ID) {
+    if (effectiveBeacon.roomId === MVP_IMMERSIVE_ROOM_ID) {
       return fallbackImmersiveRoom ?? null;
     }
 
     return currentRoom ?? null;
-  }, [currentRoom, dominantBeacon?.roomId, findRoomById]);
+  }, [currentRoom, effectiveBeacon?.roomId, findRoomById]);
 
   const isRoomDetected = Boolean(detectedRoom);
   const activeRoom = detectedRoom ?? currentRoom;
@@ -198,13 +263,13 @@ export function useHomeScreenController() {
     if (roomArtworks.length > 0) {
       return getLikelyArtworkFromRoom(
         roomArtworks,
-        dominantBeacon,
+        effectiveBeacon,
         headingState,
       );
     }
 
     return isRoomDetected ? undefined : currentArtwork;
-  }, [currentArtwork, dominantBeacon, headingState, isRoomDetected, roomArtworks]);
+  }, [currentArtwork, effectiveBeacon, headingState, isRoomDetected, roomArtworks]);
   const suggestedArtworkImageSource = getArtworkImageSource(suggestedArtwork?.image);
   const suggestedArtworkResources = useMemo(
     () =>
@@ -229,6 +294,10 @@ export function useHomeScreenController() {
     roomArtworks.length > 0 ? roomName : fallbackNormalRoom?.name ?? "Sala 1";
   const activeRoomId = activeRoom?.id;
   const topRoomLabel = isRoomDetected ? roomName : "Reconociendo sala";
+  const homeBeaconReadings = useMemo(
+    () => beacons.filter((beacon) => beacon.isActive).map(getBeaconReading),
+    [beacons],
+  );
   const centralLabel = isImmersiveRoom
     ? "Entrar VR"
     : shouldShowSuggestionCta
@@ -239,9 +308,10 @@ export function useHomeScreenController() {
     console.log("[MuseIQ][HOME_FLOW]", JSON.stringify({
       activeRoomId,
       activeSheet,
-      beaconNode: dominantBeacon?.beaconNode ?? null,
-      beaconRoomId: dominantBeacon?.roomId ?? null,
-      beaconSource: dominantBeacon?.source ?? "ble",
+      beaconNode: effectiveBeacon?.beaconNode ?? null,
+      beaconRoomId: effectiveBeacon?.roomId ?? null,
+      beaconSource: effectiveBeacon?.source ?? "ble",
+      manualZoneIndex,
       isImmersiveRoom,
       isRoomDetected,
       resourceCount: suggestedArtworkResources.length,
@@ -251,9 +321,9 @@ export function useHomeScreenController() {
   }, [
     activeRoomId,
     activeSheet,
-    dominantBeacon?.beaconNode,
-    dominantBeacon?.roomId,
-    dominantBeacon?.source,
+    effectiveBeacon?.beaconNode,
+    effectiveBeacon?.roomId,
+    effectiveBeacon?.source,
     isImmersiveRoom,
     isRoomDetected,
     suggestedArtworkResources.length,
@@ -278,6 +348,7 @@ export function useHomeScreenController() {
     setIsSuggestionVisible(true);
   }, [
     activeSheet,
+    manualZoneIndex,
     hasNearbySuggestion,
     isFocused,
     isSuggestionDismissed,
@@ -536,12 +607,18 @@ export function useHomeScreenController() {
     immersiveRoomName,
     sensorPanelProps: {
       accelerometerStatus,
+      beaconReadings: homeBeaconReadings,
       bleStatus: bleError ? `error - ${bleError}` : bleStatusLabel,
       compassStatus,
       headingState,
       isOpen: isSensorPanelOpen,
+      isManualZoneActive: manualZoneIndex !== null,
       movementState,
+      manualZoneLabel: `${manualZone.zoneId} · ${manualZone.label}`,
+      onNextManualZone: () => moveManualZone(1),
+      onPreviousManualZone: () => moveManualZone(-1),
       onToggle: () => setIsSensorPanelOpen((value) => !value),
+      onUsePhysicalBeacon: () => setManualZoneIndex(null),
       stepCount,
       stepCountStatus,
     },

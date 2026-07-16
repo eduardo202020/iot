@@ -1,29 +1,26 @@
 import { useBleScanner } from "@/hooks/use-ble-scanner";
-import { useSimulatedBleLocation } from "@/hooks/use-simulated-ble-location";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 export function useHomeBleStatus() {
   const scanner = useBleScanner();
-  const simulator = useSimulatedBleLocation();
 
-  const dominantBeacon = simulator.dominantBeacon ?? scanner.beacons[0];
-  const beacons = useMemo(() => {
-    if (!simulator.dominantBeacon) {
-      return scanner.beacons;
-    }
+  useEffect(() => {
+    // Home is the entry point for the contextual experience, so it must keep
+    // the physical BLE scanner active without requiring the technical drawer.
+    void scanner.startScanning();
 
-    return [
-      simulator.dominantBeacon,
-      ...scanner.beacons.filter((beacon) => beacon.id !== simulator.dominantBeacon?.id),
-    ];
-  }, [scanner.beacons, simulator.dominantBeacon]);
+    return () => {
+      scanner.stopScanning();
+    };
+  }, [scanner.startScanning, scanner.stopScanning]);
+
+  // Home uses physical BLE readings for the MVP. The HTTP simulator remains a
+  // separate development tool and cannot override the visitor's real context.
+  const dominantBeacon = scanner.beacons[0];
+  const beacons = useMemo(() => scanner.beacons, [scanner.beacons]);
 
   const bleStatusLabel = useMemo(() => {
     if (dominantBeacon) {
-      if (dominantBeacon.source === "simulator") {
-        return `sim · ${dominantBeacon.roomId} · ${dominantBeacon.zoneId ?? `M${dominantBeacon.beaconNode}`}`;
-      }
-
       return `${dominantBeacon.roomId} · M${dominantBeacon.beaconNode}`;
     }
 
@@ -36,10 +33,6 @@ export function useHomeBleStatus() {
 
   const bleSignalLabel = useMemo(() => {
     if (dominantBeacon) {
-      if (dominantBeacon.source === "simulator") {
-        return dominantBeacon.zoneLabel ?? "Simulador activo";
-      }
-
       return "Senal estable";
     }
 
@@ -56,7 +49,5 @@ export function useHomeBleStatus() {
     dominantBeacon,
     bleSignalLabel,
     bleStatusLabel,
-    isBleSimulated: simulator.isSimulated,
-    simulatedBridgeUrl: simulator.bridgeUrl,
   };
 }

@@ -183,9 +183,9 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "800",
-    minHeight: 66,
+    minHeight: 36,
     paddingHorizontal: 12,
-    paddingTop: 20,
+    paddingTop: 8,
     textAlign: "center",
   },
   menuButton: {

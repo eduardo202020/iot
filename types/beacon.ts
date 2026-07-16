@@ -26,7 +26,7 @@ export interface BeaconData {
     isActive: boolean; // Si está transmitiendo actualmente (< 1s desde última detección)
 
     // Metadatos opcionales para simulacion/dev bridge
-    source?: "ble" | "simulator";
+    source?: "ble" | "simulator" | "manual";
     zoneId?: string;
     zoneLabel?: string;
     artworkId?: string;
