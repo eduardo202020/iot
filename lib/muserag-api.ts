@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { askLocalMuseRag } from "@/lib/local-muserag";
 
 export interface MuseRagArtworkContext {
   id?: string;
@@ -107,6 +108,8 @@ export interface MuseRagResponse {
 
 const MUSERAG_TIMEOUT_MS = 45000;
 
+export type MuseRagMode = "local" | "remote";
+
 function isLanOrLoopbackHost(host: string) {
   return (
     host === 'localhost' ||
@@ -213,7 +216,32 @@ export function resolveMuseRagUrl() {
   return '';
 }
 
+export function resolveMuseRagMode(): MuseRagMode {
+  const constantsWithExtras = Constants as typeof Constants & {
+    expoConfig?: {
+      extra?: {
+        museRagMode?: string;
+      };
+    };
+  };
+  const configuredMode =
+    constantsWithExtras.expoConfig?.extra?.museRagMode ??
+    process.env.EXPO_PUBLIC_MUSERAG_MODE ??
+    "local";
+
+  return configuredMode.trim().toLowerCase() === "remote" ? "remote" : "local";
+}
+
 export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagResponse> {
+  const mode = resolveMuseRagMode();
+  if (mode === "local") {
+    console.log("[MuseRAG][local-request]", {
+      artworkId: params.artworkId ?? null,
+      pregunta: params.question,
+    });
+    return askLocalMuseRag(params);
+  }
+
   const baseUrl = resolveMuseRagUrl();
   if (!baseUrl) {
     throw new Error(

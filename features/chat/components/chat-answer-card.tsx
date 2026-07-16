@@ -68,7 +68,7 @@ export function ChatAnswerCard({
     <View style={styles.answerCard}>
       <View style={styles.answerHeader}>
         <Ionicons color={musePalette.primary} name="sparkles-outline" size={18} />
-        <Text style={styles.answerHeaderText}>Respuesta IA</Text>
+        <Text style={styles.answerHeaderText}>Respuesta MuseIQ</Text>
         {isLoading ? <ActivityIndicator color={musePalette.primary} size="small" /> : null}
         {hasResponse && !isLoading ? (
           <Pressable

@@ -153,6 +153,16 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 - `ar-hotspot-seleccionado.tsx`: Hotspot seleccionado (estado)
 - `pregunta-voz-modal.tsx`: Modal inferior de preguntas con voz prioritaria, markdown y fuentes
 
+## Conversacion local del MVP
+
+Durante las pruebas sin servidor, `EXPO_PUBLIC_MUSERAG_MODE=local` activa un
+recuperador curatorial incluido en la app. Conserva el flujo completo de
+dictado, respuesta breve, narracion TTS, subtitulos y fuentes, usando una
+version compacta de las seis fichas de `museRAG/curatorial/mvp`. El modo remoto
+se habilita de forma explicita con `EXPO_PUBLIC_MUSERAG_MODE=remote` y una URL
+LAN en `EXPO_PUBLIC_MUSERAG_URL`; asi la demostracion no depende de conectividad
+ni inventa datos cuando el backend no esta disponible.
+
 ## Pantallas o funcionalidades pendientes
 
 - AR espacial real con anclaje estable por plano, marcador visual o QR si se decide retomar ReactVision/ViroReact.
