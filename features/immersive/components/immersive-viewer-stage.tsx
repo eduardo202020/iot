@@ -8,17 +8,18 @@ import {
   VR_FRAME_WIDTH_RATIO,
 } from "@/features/immersive/constants";
 import type {
-  ImmersiveModelKey,
   ImmersiveModelOption,
   MotionPermissionState,
 } from "@/features/immersive/types";
+import type { ImmersiveEnvironmentAssetsState } from "@/features/immersive/hooks/use-immersive-environment-assets";
 import type { ImmersiveTourDefinition } from "@/lib/immersive-tours";
 import type { SkyTextureAsset } from "@/lib/sky-assets";
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 
 type ImmersiveViewerStageProps = {
   activeModel: ImmersiveModelOption;
-  activeModelKey: ImmersiveModelKey;
+  environmentAssetsError: string | null;
+  environmentAssetsState: ImmersiveEnvironmentAssetsState;
   hasGuidedTour: boolean;
   modelCanMount: boolean;
   motionPermissionState: MotionPermissionState;
@@ -32,7 +33,8 @@ type ImmersiveViewerStageProps = {
 
 export function ImmersiveViewerStage({
   activeModel,
-  activeModelKey,
+  environmentAssetsError,
+  environmentAssetsState,
   hasGuidedTour,
   modelCanMount,
   motionPermissionState,
@@ -70,6 +72,12 @@ export function ImmersiveViewerStage({
           width: framedViewerWidth,
         },
       ];
+  const bootText =
+    environmentAssetsState === "error"
+      ? environmentAssetsError ?? "No se pudo preparar el entorno inmersivo"
+      : environmentAssetsState === "loading"
+        ? "Preparando cielo y terreno"
+        : "Inicializando sensores";
 
   return (
     <View style={viewerStageStyle}>
@@ -77,11 +85,11 @@ export function ImmersiveViewerStage({
         <CabezaClavaModelView
           key={`${framedViewerWidth}x${framedViewerHeight}-${
             motionPermissionState === "granted" ? "tracked" : "manual"
-          }-${activeModelKey}`}
+          }-${activeModel.label}`}
           headTracking={motionPermissionState === "granted"}
           headTrackingPaused={hasGuidedTour && !tourCanPlay}
-          immersiveSubject={activeModelKey === "clava" ? "object" : "space"}
-          immersiveTour={activeModelKey === "clava" ? undefined : tour}
+          immersiveSubject="space"
+          immersiveTour={tour}
           interactive={motionPermissionState !== "granted"}
           modelAsset={activeModel.asset}
           modelLabel={activeModel.label}
@@ -95,7 +103,7 @@ export function ImmersiveViewerStage({
       ) : (
         <View style={styles.modelBootOverlay}>
           <ActivityIndicator color={arColors.primary} size="small" />
-          <Text style={styles.modelBootText}>Inicializando sensores</Text>
+          <Text style={styles.modelBootText}>{bootText}</Text>
         </View>
       )}
     </View>
@@ -125,5 +133,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "800",
+    paddingHorizontal: 24,
+    textAlign: "center",
   },
 });

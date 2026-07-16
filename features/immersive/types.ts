@@ -7,8 +7,6 @@ export type MotionCapabilities = {
   magnetometerAvailable: boolean | null;
 };
 
-export type ImmersiveModelKey = "room" | "clava";
-
 export type ImmersiveModelOption = {
   asset: number;
   label: string;

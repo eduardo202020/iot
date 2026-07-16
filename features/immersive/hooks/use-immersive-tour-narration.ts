@@ -1,16 +1,13 @@
 import { NARRATION_DEFAULT_RATE } from "@/features/immersive/constants";
-import type { ImmersiveModelKey } from "@/features/immersive/types";
 import type { ImmersiveTourNarration } from "@/lib/immersive-tours";
 import * as Speech from "expo-speech";
 import { useEffect, useRef } from "react";
 
 export function useImmersiveTourNarration({
-  activeModelKey,
   activeNarration,
   activeNarrationKey,
   tourCanPlay,
 }: {
-  activeModelKey: ImmersiveModelKey;
   activeNarration?: ImmersiveTourNarration;
   activeNarrationKey: string | null;
   tourCanPlay: boolean;
@@ -18,7 +15,7 @@ export function useImmersiveTourNarration({
   const lastSpokenSegmentKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!tourCanPlay || activeModelKey !== "room" || !activeNarrationKey || !activeNarration) {
+    if (!tourCanPlay || !activeNarrationKey || !activeNarration) {
       lastSpokenSegmentKeyRef.current = null;
       Speech.stop().catch(() => undefined);
       return;
@@ -56,7 +53,7 @@ export function useImmersiveTourNarration({
     return () => {
       isCancelled = true;
     };
-  }, [activeModelKey, activeNarration, activeNarrationKey, tourCanPlay]);
+  }, [activeNarration, activeNarrationKey, tourCanPlay]);
 
   useEffect(() => {
     return () => {

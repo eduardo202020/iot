@@ -3,6 +3,10 @@
     "name": "MuseIQ",
     "slug": "museiq",
     "version": "1.0.0",
+    "assetBundlePatterns": [
+      "assets/skies/*",
+      "assets/textures/terrain/rocky_terrain_02_diff_1k.jpg"
+    ],
     "orientation": "default",
     "icon": "./assets/images/logo.png",
     "scheme": "museiq",

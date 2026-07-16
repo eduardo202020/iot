@@ -1,10 +1,3 @@
-import cabezaClavaTestGlb from "@/assets/models/cabeza_clava-2.glb";
-
-export const IMMERSIVE_TEST_MODEL = {
-  asset: cabezaClavaTestGlb,
-  label: "cabeza_clava-2.glb",
-};
-
 export const HEADSET_COUNTDOWN_SECONDS = 5;
 export const VR_FRAME_HEIGHT_RATIO = 1;
 export const VR_FRAME_WIDTH_RATIO = 0.84;

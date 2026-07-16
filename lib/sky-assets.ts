@@ -1,14 +1,12 @@
 import afternoonSky from "@/assets/skies/afternoon.jpg";
 import morningSky from "@/assets/skies/morning.jpg";
-import nightSky from "@/assets/skies/night.jpg";
 
 export type SkyTextureAsset = number | string;
-export type SkyPreset = "morning" | "afternoon" | "night";
+export type SkyPreset = "morning" | "afternoon";
 
 const skyTextures: Record<SkyPreset, SkyTextureAsset> = {
   afternoon: afternoonSky,
   morning: morningSky,
-  night: nightSky,
 };
 
 export function getCurrentSkyPreset(date = new Date()): SkyPreset {
@@ -22,7 +20,9 @@ export function getCurrentSkyPreset(date = new Date()): SkyPreset {
     return "afternoon";
   }
 
-  return "night";
+  // The mobile bundle currently includes morning and afternoon panoramas.
+  // Keep a valid environment after sunset rather than referencing a removed asset.
+  return "afternoon";
 }
 
 export function getSkyTextureAsset(preset: SkyPreset) {

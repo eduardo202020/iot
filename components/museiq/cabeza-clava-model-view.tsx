@@ -72,6 +72,7 @@ import type {
   TextureAsset,
 } from "@/components/museiq/model-viewer/types";
 import { estimateImmersiveNarrationDuration } from "@/lib/immersive-tours";
+import { ensureFileBackedAsset } from "@/lib/file-backed-asset";
 import type { SkyTextureAsset } from "@/lib/sky-assets";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
@@ -2141,7 +2142,9 @@ async function writeEmbeddedTextureFile(
     throw new Error("Cache local no disponible para textura GLB");
   }
 
-  const uri = `${cacheRoot}museiq-cabeza-clava-texture-${imageIndex}-${bufferView.byteLength}.${extension}`;
+  // The image index restarts for every GLB. Include the source buffer identity
+  // so switching immersive experiences cannot reuse another model's texture.
+  const uri = `${cacheRoot}museiq-model-texture-${arrayBuffer.byteLength}-${bufferView.byteOffset ?? 0}-${imageIndex}-${bufferView.byteLength}.${extension}`;
   const cacheKey = uri;
   const cached = embeddedTextureFileCache.get(cacheKey);
 
@@ -2195,12 +2198,11 @@ async function loadTextureAsset(
   }
 
   const promise = (async () => {
-    const asset = Asset.fromModule(assetModule);
-    await asset.downloadAsync();
-    const localUri = asset.localUri ?? asset.uri;
+    const asset = await ensureFileBackedAsset(Asset.fromModule(assetModule));
+    const localUri = asset.localUri;
 
     if (!localUri) {
-      throw new Error("Cielo sin URI local disponible");
+      throw new Error("Textura inmersiva sin archivo local disponible");
     }
 
     if (typeof asset.width === "number" && typeof asset.height === "number") {
@@ -2303,29 +2305,14 @@ async function createImmersiveTerrainGround(
   const terrainFootprint = getImmersiveTerrainFootprint(box, rig);
   const anisotropy = Math.max(1, Math.min(maxAnisotropy, IMMERSIVE_TEXTURE_MAX_ANISOTROPY));
   let map: THREE.Texture | undefined;
-  let roughnessMap: THREE.Texture | undefined;
-  let normalMap: THREE.Texture | undefined;
 
   try {
-    const [diffuseAsset, roughnessAsset, normalAsset] = await Promise.all([
-      loadTerrainTextureAsset(immersiveTerrainTextures.diffuse),
-      loadTerrainTextureAsset(immersiveTerrainTextures.roughness),
-      loadTerrainTextureAsset(immersiveTerrainTextures.normal),
-    ]);
+    const diffuseAsset = await loadTerrainTextureAsset(immersiveTerrainTextures.diffuse);
     map = createRuntimeTexture(diffuseAsset, {
       colorSpace: THREE.SRGBColorSpace,
       repeat: terrainFootprint.repeat,
     });
-    roughnessMap = createRuntimeTexture(roughnessAsset, {
-      repeat: terrainFootprint.repeat,
-    });
-    normalMap = createRuntimeTexture(normalAsset, {
-      repeat: terrainFootprint.repeat,
-    });
-
     map.anisotropy = anisotropy;
-    roughnessMap.anisotropy = anisotropy;
-    normalMap.anisotropy = anisotropy;
   } catch (error) {
     warn3d("[MuseIQ][3D] Usando terreno de color por fallback", error);
   }
@@ -2340,14 +2327,9 @@ async function createImmersiveTerrainGround(
     color: map ? 0xd7c8ae : IMMERSIVE_TERRAIN_FALLBACK_COLOR,
     map,
     metalness: 0,
-    normalMap,
     roughness: 0.96,
-    roughnessMap,
     side: THREE.DoubleSide,
   });
-  if (normalMap) {
-    material.normalScale.set(0.35, 0.35);
-  }
 
   const ground = new THREE.Mesh(geometry, material);
   ground.name = "MuseIQ_RockyTerrain";

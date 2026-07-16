@@ -1,7 +1,7 @@
 // Archivo generado por muse3d.py. No editar a mano.
 import lugarGlb from "@/assets/models/immersive/lugar.glb";
 import puertaMonumentalIncaGlb from "@/assets/models/immersive/puerta_monumental_inca.glb";
-import ushnu2Glb from "@/assets/models/immersive/ushnu-2.glb";
+import ushnu2MobileGlb from "@/assets/models/immersive/ushnu-2-mobile.glb";
 import ushnuGlb from "@/assets/models/immersive/ushnu.glb";
 import type { RoomImmersiveExperience } from "@/lib/immersive-experience-types";
 import { lugarWalkingTour, puertaMonumentalIncaWalkingTour, ushnu2WalkingTour, ushnuWalkingTour } from "@/lib/immersive-tours";
@@ -47,8 +47,8 @@ export const immersiveRoomExperiences: RoomImmersiveExperience[] = [
     promptTitle: "Modo inmersivo disponible",
     description: "Recorrido inmersivo por una reconstruccion 3D preparada para headset.",
     ctaLabel: "Entrar al modo inmersivo",
-    modelAsset: ushnu2Glb,
-    modelLabel: "ushnu-2.glb",
+    modelAsset: ushnu2MobileGlb,
+    modelLabel: "ushnu-2-mobile.glb",
     tour: ushnu2WalkingTour,
   },
 ];

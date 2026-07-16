@@ -1,6 +1,4 @@
 import terrainDiffuseTexture from "@/assets/textures/terrain/rocky_terrain_02_diff_1k.jpg";
-import terrainNormalTexture from "@/assets/textures/terrain/rocky_terrain_02_nor_gl_1k.png";
-import terrainRoughnessTexture from "@/assets/textures/terrain/rocky_terrain_02_rough_1k.png";
 import type {
   EmbeddedTextureAsset,
   GltfAccessor,
@@ -92,6 +90,4 @@ export const terrainTextureAssetCache = new Map<TextureAsset, Promise<EmbeddedTe
 
 export const immersiveTerrainTextures = {
   diffuse: terrainDiffuseTexture,
-  normal: terrainNormalTexture,
-  roughness: terrainRoughnessTexture,
 } satisfies Record<string, TextureAsset>;

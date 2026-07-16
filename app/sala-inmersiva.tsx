@@ -4,13 +4,12 @@ import { ImmersiveEmptyState } from "@/features/immersive/components/immersive-e
 import { ImmersiveTopControls } from "@/features/immersive/components/immersive-top-controls";
 import { ImmersiveViewerStage } from "@/features/immersive/components/immersive-viewer-stage";
 import { MotionPermissionOverlay } from "@/features/immersive/components/motion-permission-overlay";
-import { IMMERSIVE_TEST_MODEL } from "@/features/immersive/constants";
 import { useHeadsetCountdown } from "@/features/immersive/hooks/use-headset-countdown";
+import { useImmersiveEnvironmentAssets } from "@/features/immersive/hooks/use-immersive-environment-assets";
 import { useImmersiveLandscapeLock } from "@/features/immersive/hooks/use-immersive-landscape-lock";
 import { useImmersiveModelMount } from "@/features/immersive/hooks/use-immersive-model-mount";
 import { useImmersiveMotionPermission } from "@/features/immersive/hooks/use-immersive-motion-permission";
 import { useImmersiveTourNarration } from "@/features/immersive/hooks/use-immersive-tour-narration";
-import type { ImmersiveModelKey } from "@/features/immersive/types";
 import { getImmersiveExperience, getRoomImmersiveExperience } from "@/lib/room-experiences";
 import { getCurrentSkyTextureAsset } from "@/lib/sky-assets";
 import { router, useLocalSearchParams } from "expo-router";
@@ -27,10 +26,10 @@ export default function SalaInmersivaScreen() {
     roomId?: string;
   }>();
   const experience = getImmersiveExperience(experienceId) ?? getRoomImmersiveExperience(roomId);
-  const [activeModelKey, setActiveModelKey] = useState<ImmersiveModelKey>("room");
+  const [skyTextureAsset] = useState(() => getCurrentSkyTextureAsset());
   const [activeTourSegment, setActiveTourSegment] =
     useState<ImmersiveTourSegmentState | null>(null);
-  const hasGuidedTour = activeModelKey === "room" && Boolean(experience?.tour?.points.length);
+  const hasGuidedTour = Boolean(experience?.tour?.points.length);
 
   useImmersiveLandscapeLock(Boolean(experience));
 
@@ -39,12 +38,21 @@ export default function SalaInmersivaScreen() {
     requestMotionPermission,
     setMotionPermissionState,
   } = useImmersiveMotionPermission();
-  const modelCanMount = useImmersiveModelMount({
+  const sensorModelCanMount = useImmersiveModelMount({
     enabled: Boolean(experience),
     motionPermissionState,
     windowHeight,
     windowWidth,
   });
+  const {
+    environmentAssetsError,
+    environmentAssetsReady,
+    environmentAssetsState,
+  } = useImmersiveEnvironmentAssets({
+    enabled: Boolean(experience),
+    skyTextureAsset,
+  });
+  const modelCanMount = sensorModelCanMount && environmentAssetsReady;
 
   const resetTourSegment = useCallback(() => {
     setActiveTourSegment(null);
@@ -56,15 +64,13 @@ export default function SalaInmersivaScreen() {
     modelCanMount,
     onResetTourSegment: resetTourSegment,
   });
-  const activeNarration =
-    tourCanPlay && activeModelKey === "room" ? activeTourSegment?.narration : undefined;
+  const activeNarration = tourCanPlay ? activeTourSegment?.narration : undefined;
   const activeNarrationKey =
     activeNarration?.text && activeTourSegment
       ? `${experience?.id ?? "immersive"}:${activeTourSegment.pointId}`
       : null;
 
   useImmersiveTourNarration({
-    activeModelKey,
     activeNarration,
     activeNarrationKey,
     tourCanPlay,
@@ -80,25 +86,23 @@ export default function SalaInmersivaScreen() {
     return <ImmersiveEmptyState />;
   }
 
-  const activeModel =
-    activeModelKey === "clava"
-      ? IMMERSIVE_TEST_MODEL
-      : {
-          asset: experience.modelAsset,
-          label: experience.modelLabel,
-        };
+  const activeModel = {
+    asset: experience.modelAsset,
+    label: experience.modelLabel,
+  };
 
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
       <ImmersiveViewerStage
         activeModel={activeModel}
-        activeModelKey={activeModelKey}
+        environmentAssetsError={environmentAssetsError}
+        environmentAssetsState={environmentAssetsState}
         hasGuidedTour={hasGuidedTour}
         modelCanMount={modelCanMount}
         motionPermissionState={motionPermissionState}
         onTourSegmentChange={setActiveTourSegment}
-        skyTextureAsset={getCurrentSkyTextureAsset()}
+        skyTextureAsset={skyTextureAsset}
         tour={experience.tour}
         tourCanPlay={tourCanPlay}
         windowHeight={windowHeight}
@@ -111,9 +115,7 @@ export default function SalaInmersivaScreen() {
 
       <SafeAreaView edges={["top", "left", "right"]} style={styles.overlaySafeArea}>
         <ImmersiveTopControls
-          activeModelKey={activeModelKey}
           onBack={() => router.back()}
-          onSelectModel={setActiveModelKey}
           topInset={insets.top}
         />
         <MotionPermissionOverlay
