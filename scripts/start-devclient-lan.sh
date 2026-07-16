@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Keep Metro's deep link scheme aligned with the separate development package.
+export APP_VARIANT="${APP_VARIANT:-development}"
+
 # If host IP is not provided, try WSL->Windows IP detection first.
 if [[ -z "${REACT_NATIVE_PACKAGER_HOSTNAME:-}" ]]; then
   if command -v powershell.exe >/dev/null 2>&1; then
@@ -24,5 +27,8 @@ if [[ -n "${REACT_NATIVE_PACKAGER_HOSTNAME:-}" ]]; then
 else
   echo "No se pudo detectar IP automáticamente; Expo intentará resolver LAN por defecto."
 fi
+
+echo "MuseIQ variant: ${APP_VARIANT}"
+echo "MuseIQ BLE: lectura fisica activa; el bridge simulado no se inyecta en Home"
 
 exec npx expo start --dev-client --lan --port 8081
