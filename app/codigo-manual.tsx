@@ -125,7 +125,7 @@ export default function CodigoManualScreen() {
                   setError("");
                 }}
                 onSubmitEditing={() => submitCode()}
-                placeholder="Ej. SALA_1-02"
+                placeholder="Ej. SALA_2-06-A"
                 placeholderTextColor="rgba(255,255,255,0.46)"
                 returnKeyType="done"
                 style={styles.input}

@@ -1,6 +1,11 @@
 import type { ChatSheetProps } from "@/components/museiq/chat/chat-sheet";
 import type { SourceImageItem } from "@/components/museiq/chat/source-image-carousel";
-import { askMuseRag, type SourceSnippet } from "@/lib/muserag-api";
+import {
+  askMuseRag,
+  resolveMuseRagRemoteTts,
+  synthesizeMuseRagSpeech,
+  type SourceSnippet,
+} from "@/lib/muserag-api";
 import {
   getArtworkConversationMemory,
   getPersistedChatHistory,
@@ -36,6 +41,52 @@ type UseArtworkChatControllerOptions = {
 };
 
 type ChatControllerSheetProps = Omit<ChatSheetProps, "onClose">;
+
+type RemoteAudioSubscription = {
+  remove: () => void;
+};
+
+type RemoteAudioPlayer = {
+  addListener: (
+    eventName: "playbackStatusUpdate",
+    listener: (status: { didJustFinish?: boolean }) => void,
+  ) => RemoteAudioSubscription;
+  pause: () => void;
+  play: () => void;
+  remove: () => void;
+  replace: (source: { uri: string } | null) => void;
+  seekTo: (seconds: number) => Promise<void>;
+};
+
+type OptionalExpoAudioModule = {
+  createAudioPlayer: (
+    source?: { uri: string } | null,
+    options?: { updateInterval?: number },
+  ) => RemoteAudioPlayer;
+  setAudioModeAsync: (mode: {
+    allowsRecording?: boolean;
+    interruptionMode?: "duckOthers";
+    playsInSilentMode?: boolean;
+  }) => Promise<void>;
+};
+
+let optionalExpoAudio: OptionalExpoAudioModule | null | undefined;
+
+function loadOptionalExpoAudio() {
+  if (optionalExpoAudio !== undefined) {
+    return optionalExpoAudio;
+  }
+
+  try {
+    // expo-audio is native. Loading it lazily keeps older development builds
+    // usable while the JavaScript bundle is updated before the APK is rebuilt.
+    optionalExpoAudio = require("expo-audio") as OptionalExpoAudioModule;
+  } catch {
+    optionalExpoAudio = null;
+  }
+
+  return optionalExpoAudio;
+}
 
 function createChatSessionId(artworkId?: string) {
   const seed = artworkId?.trim() || "chat";
@@ -99,6 +150,9 @@ export function useArtworkChatController({
   const [pendingQuestion, setPendingQuestion] = useState("");
   const [voiceStatusMessage, setVoiceStatusMessage] = useState("");
   const [responseMode, setResponseMode] = useState<ResponseMode>("breve");
+  const remoteSpeechPlayerRef = useRef<RemoteAudioPlayer | null>(null);
+  const remoteSpeechSubscriptionRef = useRef<RemoteAudioSubscription | null>(null);
+  const remoteSpeechActiveRef = useRef(false);
   const loadingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const activeRequestAbortRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef(createChatSessionId(artworkId ?? currentArtwork?.id));
@@ -246,6 +300,13 @@ export function useArtworkChatController({
 
   const stopSpeaking = async () => {
     try {
+      remoteSpeechActiveRef.current = false;
+      const remoteSpeechPlayer = remoteSpeechPlayerRef.current;
+      if (remoteSpeechPlayer) {
+        remoteSpeechPlayer.pause();
+        await remoteSpeechPlayer.seekTo(0).catch(() => undefined);
+        remoteSpeechPlayer.replace(null);
+      }
       await Speech.stop();
     } finally {
       setIsSpeaking(false);
@@ -265,6 +326,60 @@ export function useArtworkChatController({
     await stopSpeaking();
     setIsSpeaking(true);
     setSpeakingDisplayText(trimmedText);
+    setSpeechHighlightRange(null);
+
+    const expoAudio = resolveMuseRagRemoteTts() ? loadOptionalExpoAudio() : null;
+    if (expoAudio) {
+      try {
+        const remoteSpeech = await synthesizeMuseRagSpeech(trimmedText);
+        await expoAudio.setAudioModeAsync({
+          allowsRecording: false,
+          interruptionMode: "duckOthers",
+          playsInSilentMode: true,
+        });
+        let remoteSpeechPlayer = remoteSpeechPlayerRef.current;
+        if (!remoteSpeechPlayer) {
+          remoteSpeechPlayer = expoAudio.createAudioPlayer(null, {
+            updateInterval: 150,
+          });
+          remoteSpeechPlayerRef.current = remoteSpeechPlayer;
+          remoteSpeechSubscriptionRef.current = remoteSpeechPlayer.addListener(
+            "playbackStatusUpdate",
+            (status) => {
+              if (!remoteSpeechActiveRef.current || !status.didJustFinish) {
+                return;
+              }
+
+              remoteSpeechActiveRef.current = false;
+              setIsSpeaking(false);
+              setSpeakingDisplayText("");
+              setSpeechHighlightRange(null);
+              setVoiceStatusMessage("");
+            },
+          );
+        }
+        remoteSpeechPlayer.replace({ uri: remoteSpeech.audioUrl });
+        remoteSpeechActiveRef.current = true;
+        remoteSpeechPlayer.play();
+        setVoiceStatusMessage(
+          remoteSpeech.cached
+            ? "Reproduciendo voz neural desde caché."
+            : "Reproduciendo voz neural de Google Cloud.",
+        );
+        return;
+      } catch (error) {
+        console.warn(
+          "[MuseRAG][tts-local-fallback]",
+          error instanceof Error ? error.message : String(error),
+        );
+        setVoiceStatusMessage("Usando la voz disponible en el dispositivo.");
+      }
+    } else if (resolveMuseRagRemoteTts()) {
+      setVoiceStatusMessage(
+        "El audio neural requiere actualizar la app. Usando la voz del dispositivo.",
+      );
+    }
+
     setSpeechHighlightRange({ start: 0, end: 0 });
     Speech.speak(trimmedText, {
       language: SPEECH_LANGUAGE,
@@ -560,6 +675,12 @@ export function useArtworkChatController({
       loadingTimersRef.current = [];
       activeRequestAbortRef.current?.abort();
       ExpoSpeechRecognitionModule.abort();
+      remoteSpeechActiveRef.current = false;
+      remoteSpeechSubscriptionRef.current?.remove();
+      remoteSpeechSubscriptionRef.current = null;
+      remoteSpeechPlayerRef.current?.pause();
+      remoteSpeechPlayerRef.current?.remove();
+      remoteSpeechPlayerRef.current = null;
       Speech.stop();
     };
   }, []);

@@ -56,15 +56,49 @@ Si las referencias visuales de `pantallas/` no están presentes en tu copia del 
 
 ## Escenario MVP de recorrido
 
-El caso de prueba actual representa un museo piloto con dos zonas:
+El caso de prueba actual representa un museo piloto con tres salas tematicas y una sala inmersiva:
 
-- `SALA_1`: sala normal con 6 obras distribuidas en 3 filas y 2 columnas.
-- `SALA_1`: beacons BLE `S1`, `S2` y `S3` estiman la fila/zona mas probable del visitante.
-- `SALA_1`: orientacion del telefono y movimiento ayudan a elegir si la hipotesis apunta a la obra izquierda o derecha.
+- `SALA_1` / beacon `S1`: Conocimiento de la UNI, con 4 piezas historicas.
+- `SALA_2` / beacon `S2`: Minerales del Peru, con 10 muestras digitalizadas.
+- `SALA_3` / beacon `S3`: Culturas antiguas del Peru, con 6 recursos comparativos.
+- Orientacion y movimiento ayudan a elegir una pieza probable dentro de la sala; el QR confirma la pieza exacta.
 - Cada obra tiene QR fisicos cercanos; el QR confirma la obra exacta y abre su GLB como material 3D complementario.
 - `SALA_VR`: sala inmersiva detectada por beacon `S4`, sin obras fisicas activas en la app.
 - `SALA_VR`: al detectarse, Home cambia el CTA central a `Entrar VR` y muestra la lista de experiencias inmersivas disponibles.
 - Durante desarrollo, `iot-museiq/dev_location_bridge.py` puede simular estas ubicaciones desde terminal para probar el recorrido sin ESP32 fisicos.
+
+Las 20 piezas activas tienen imagen y GLB local. La ruta breve para la demo pasa por el escritorio y Habich, la malaquita/cobre y el aríbalo inca; la sala mineral incorpora los diez GLB de `docs/assets/minerales/` en versiones centradas y optimizadas para móvil.
+
+### Modo de integracion con `museiq-harness`
+
+BLE fisico es siempre la fuente predeterminada. Para permitir que el escenario
+de integracion controle temporalmente la ubicacion de Home, inicia Expo con el
+opt-in y una URL accesible desde el telefono:
+
+```bash
+EXPO_PUBLIC_MUSEIQ_HARNESS_MODE=1 \
+EXPO_PUBLIC_MUSEIQ_BLE_SIM_URL=http://<IP_PC>:8787 \
+npx expo start --dev-client --host lan -c
+```
+
+Mientras el bridge exponga una ubicacion activa, su beacon simulado domina el
+HUD y la seleccion contextual. `clear` o la desconexion del bridge devuelven el
+control a BLE fisico. Omitir `EXPO_PUBLIC_MUSEIQ_HARNESS_MODE=1` deshabilita por
+completo el sondeo HTTP, incluso si existe una URL configurada.
+
+Desde el directorio hermano `museiq-harness`, valida los contratos y ejecuta
+los escenarios reproducibles:
+
+```bash
+node ../museiqApp/harness/doctor.mjs --offline
+python3 -m museiq_harness topology
+python3 -m museiq_harness validate
+python3 -m museiq_harness run scenarios/location-mvp.json --skip-rag
+```
+
+La observacion de los cambios de sala, zona, obra y pantalla en el dispositivo
+sigue siendo un checkpoint manual. Consulta
+[museiq-harness/README.md](../museiq-harness/README.md) para el flujo completo.
 
 ## Flujo implementado
 
@@ -158,10 +192,12 @@ Listado de pantallas detectadas en `app/` y su correspondencia con el flujo:
 Durante las pruebas sin servidor, `EXPO_PUBLIC_MUSERAG_MODE=local` activa un
 recuperador curatorial incluido en la app. Conserva el flujo completo de
 dictado, respuesta breve, narracion TTS, subtitulos y fuentes, usando una
-version compacta de las seis fichas de `museRAG/curatorial/mvp`. El modo remoto
+version compacta de las seis fichas de `museRAG/curatorial/uni-mvp`. El modo remoto
 se habilita de forma explicita con `EXPO_PUBLIC_MUSERAG_MODE=remote` y una URL
 LAN en `EXPO_PUBLIC_MUSERAG_URL`; asi la demostracion no depende de conectividad
 ni inventa datos cuando el backend no esta disponible.
+
+En modo remoto, `EXPO_PUBLIC_MUSERAG_REMOTE_TTS=1` intenta reproducir el MP3 neural generado por `museRAG`; si el endpoint, Google Cloud o la red fallan, el mismo botón continúa con `expo-speech`. Las credenciales Google permanecen siempre en el backend.
 
 ## Pantallas o funcionalidades pendientes
 
@@ -252,6 +288,8 @@ El reconocimiento automatico de obra queda planteado como hipótesis contextual:
 - Roadmap de producto y flujo: [ROADMAP.md](ROADMAP.md)
 - URL de backend: [app.config.js](app.config.js)
 - Cliente de MuseRAG: [lib/muserag-api.ts](lib/muserag-api.ts)
+- Nodo de harness de la app: [harness/README.md](harness/README.md)
+- Harness de integracion: [../museiq-harness/README.md](../museiq-harness/README.md)
 - Pipeline 3D y tours: [../muse3d/README.md](../muse3d/README.md)
 - QA flujo QR/AR: [docs/qa/ar-qr-flow.md](docs/qa/ar-qr-flow.md)
 

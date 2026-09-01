@@ -79,7 +79,7 @@ export function useBleScanner(options: BleScannerOptions = {}) {
         const shortBeaconMatch = value.match(/^S([1-4])$/);
         if (shortBeaconMatch) {
             const beaconNode = Number(shortBeaconMatch[1]);
-            const roomId = beaconNode === 4 ? 'SALA_VR' : 'SALA_1';
+            const roomId = beaconNode === 4 ? 'SALA_VR' : `SALA_${beaconNode}`;
             return {
                 roomId,
                 beaconNode,

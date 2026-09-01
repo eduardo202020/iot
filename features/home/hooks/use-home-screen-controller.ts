@@ -9,6 +9,7 @@ import {
 import {
   MVP_NORMAL_ROOM_ID,
   MVP_IMMERSIVE_ROOM_ID,
+  isMvpNormalRoomId,
   museumMock,
   type ArtworkMock,
 } from "@/datos";
@@ -75,10 +76,7 @@ function getLikelyArtworkFromRoom(
     }
   }
 
-  const rowCandidates = beacon?.beaconNode
-    ? roomArtworks.filter((artwork) => artwork.row === beacon.beaconNode)
-    : [];
-  const candidates = rowCandidates.length > 0 ? rowCandidates : roomArtworks;
+  const candidates = roomArtworks;
   const preferredColumn = getPreferredColumnFromHeading(headingState);
 
   if (preferredColumn) {
@@ -95,7 +93,9 @@ function getLikelyArtworkFromRoom(
 }
 
 function getBeaconReading(beacon: BeaconData): SensorBeaconReading {
-  const room = beacon.roomId === MVP_IMMERSIVE_ROOM_ID ? "Sala VR" : beacon.roomId.replace("_", " ");
+  const room =
+    museumMock.rooms.find((candidate) => candidate.id === beacon.roomId)?.name ??
+    beacon.roomId.replace("_", " ");
   const zone = beacon.zoneId ?? `Nodo ${beacon.beaconNode}`;
 
   return {
@@ -128,12 +128,14 @@ function createManualBeacon(zone: NormalRoomZone): BeaconData {
 }
 
 function getZoneIndexForBeacon(beacon?: BeaconData) {
-  if (!beacon || beacon.roomId !== MVP_NORMAL_ROOM_ID) {
+  if (!beacon || !isMvpNormalRoomId(beacon.roomId)) {
     return undefined;
   }
 
   const index = MVP_NORMAL_ROOM_ZONES.findIndex(
-    (zone) => zone.artworkId === beacon.artworkId || zone.beaconNode === beacon.beaconNode,
+    (zone) =>
+      zone.roomId === beacon.roomId &&
+      (zone.artworkId === beacon.artworkId || zone.beaconNode === beacon.beaconNode),
   );
 
   return index >= 0 ? index : undefined;
@@ -390,7 +392,7 @@ export function useHomeScreenController() {
       !isFocused ||
       !settings.autoPlay ||
       activeSheet ||
-      activeRoomId !== MVP_NORMAL_ROOM_ID ||
+      !isMvpNormalRoomId(activeRoomId) ||
       !isSuggestionVisible ||
       !shouldShowSuggestionCta ||
       !suggestedArtworkId ||

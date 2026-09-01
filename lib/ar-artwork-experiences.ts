@@ -113,6 +113,22 @@ const arModelTuning: Record<
   string,
   Partial<Pick<ArArtworkExperience, "modelYOffset" | "rotation" | "scale">>
 > = {
+  "escritorio_historico_uni.glb": {
+    modelYOffset: 0.02,
+    scale: uniformScale(0.0015),
+  },
+  "maquina_de_escribir_underwood.glb": {
+    scale: uniformScale(0.03),
+  },
+  "busto_miguel_grau.glb": {
+    scale: uniformScale(0.065),
+  },
+  "busto_jose_san_martin.glb": {
+    scale: uniformScale(0.018),
+  },
+  "malaquita_mineral_de_cobre.glb": {
+    scale: uniformScale(2.2),
+  },
   "aribalo.glb": {
     scale: uniformScale(0.3),
   },

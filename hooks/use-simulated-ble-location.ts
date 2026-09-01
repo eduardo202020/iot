@@ -21,6 +21,21 @@ type SimulatedLocationState = {
 const POLL_INTERVAL_MS = 800;
 const STALE_AFTER_MS = 6_000;
 
+function resolveHarnessMode() {
+  const constantsWithExtras = Constants as typeof Constants & {
+    expoConfig?: {
+      extra?: {
+        museIqHarnessMode?: boolean;
+      };
+    };
+  };
+
+  return (
+    constantsWithExtras.expoConfig?.extra?.museIqHarnessMode === true ||
+    process.env.EXPO_PUBLIC_MUSEIQ_HARNESS_MODE === "1"
+  );
+}
+
 function getMetroHost() {
   const constantsWithExtras = Constants as typeof Constants & {
     expoConfig?: {
@@ -110,7 +125,11 @@ function toBeaconData(payload: SimulatedBeaconPayload, updatedAt: number): Beaco
 }
 
 export function useSimulatedBleLocation() {
-  const bridgeUrl = useMemo(resolveBridgeUrl, []);
+  const isHarnessModeEnabled = useMemo(resolveHarnessMode, []);
+  const bridgeUrl = useMemo(
+    () => (isHarnessModeEnabled ? resolveBridgeUrl() : ""),
+    [isHarnessModeEnabled],
+  );
   const [snapshot, setSnapshot] = useState<SimulatedLocationState | null>(null);
   const lastSuccessAtRef = useRef(0);
 
@@ -171,6 +190,7 @@ export function useSimulatedBleLocation() {
   return {
     bridgeUrl,
     dominantBeacon,
+    isHarnessModeEnabled,
     isConnected: Boolean(snapshot),
     isSimulated: Boolean(dominantBeacon),
     message: snapshot?.message,

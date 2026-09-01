@@ -15,12 +15,14 @@ export function useExploreScreenController() {
     visitedArtworkIds,
   } = useMuseIQ();
 
-  const visibleRoom = currentRoom ?? rooms[0];
+  const contentRooms = rooms.filter((room) => getArtworksForRoom(room.id).length > 0);
+  const visibleRoom =
+    contentRooms.find((room) => room.id === currentRoom?.id) ?? contentRooms[0];
   const roomArtworks = visibleRoom ? getArtworksForRoom(visibleRoom.id) : [];
   const visitedInRoom = roomArtworks.filter((artwork) =>
     visitedArtworkIds.includes(artwork.id),
   ).length;
-  const roomSummaries = rooms.map((room) => {
+  const roomSummaries = contentRooms.map((room) => {
     const artworksInRoom = getArtworksForRoom(room.id);
     return {
       roomId: room.id,
@@ -51,7 +53,7 @@ export function useExploreScreenController() {
     museumProfile,
     roomArtworks,
     roomSummaries,
-    rooms,
+    rooms: contentRooms,
     setCurrentRoomById,
     visibleRoom,
     visitedArtworkIds,

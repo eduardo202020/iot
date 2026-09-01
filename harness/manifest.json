@@ -1,0 +1,67 @@
+{
+  "$schema": "../../museiq-harness/contracts/harness-node.schema.json",
+  "schemaVersion": 1,
+  "id": "museiqApp",
+  "displayName": "MuseIQ App",
+  "role": "Orquestador movil de contexto, experiencia y conocimiento",
+  "runtime": "Expo 54 + React Native 0.81",
+  "implementation": [
+    "../hooks/use-home-ble-status.ts",
+    "../hooks/use-simulated-ble-location.ts",
+    "../lib/muserag-api.ts"
+  ],
+  "harness": {
+    "entrypoint": "doctor.mjs",
+    "doctor": "node harness/doctor.mjs",
+    "offline": "node harness/doctor.mjs --offline"
+  },
+  "capabilities": {
+    "provides": [],
+    "consumes": [
+      {
+        "id": "museiq.location.v1",
+        "provider": "iot-museiq",
+        "transport": "http-json",
+        "baseUrlEnv": "EXPO_PUBLIC_MUSEIQ_BLE_SIM_URL",
+        "defaultBaseUrl": "http://<METRO_HOST>:8787",
+        "activationEnv": "EXPO_PUBLIC_MUSEIQ_HARNESS_MODE=1",
+        "contracts": [
+          {
+            "id": "location-state",
+            "schema": "../../museiq-harness/contracts/location-state.schema.json"
+          }
+        ]
+      },
+      {
+        "id": "museiq.knowledge.v1",
+        "provider": "museRAG",
+        "transport": "http-json",
+        "baseUrlEnv": "EXPO_PUBLIC_MUSERAG_URL",
+        "defaultBaseUrl": "http://<METRO_HOST>:8000",
+        "activationEnv": "EXPO_PUBLIC_MUSERAG_MODE=remote",
+        "contracts": [
+          {
+            "id": "mobile-question",
+            "schema": "../../museiq-harness/contracts/mobile-question.schema.json"
+          },
+          {
+            "id": "mobile-response",
+            "schema": "../../museiq-harness/contracts/mobile-response.schema.json"
+          }
+        ]
+      }
+    ]
+  },
+  "peers": [
+    {
+      "id": "iot-museiq",
+      "manifest": "../../iot-museiq/harness/manifest.json",
+      "relationship": "Proveedor de ubicacion BLE y bridge HTTP de pruebas"
+    },
+    {
+      "id": "museRAG",
+      "manifest": "../../museRAG/harness/manifest.json",
+      "relationship": "Proveedor HTTP de respuestas curatoriales y medios"
+    }
+  ]
+}

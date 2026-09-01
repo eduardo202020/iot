@@ -106,6 +106,13 @@ export interface MuseRagResponse {
   meta?: MuseRagResponseMeta;
 }
 
+export interface MuseRagSpeechResponse {
+  audioUrl: string;
+  provider: string;
+  voice: string;
+  cached: boolean;
+}
+
 const MUSERAG_TIMEOUT_MS = 45000;
 
 export type MuseRagMode = "local" | "remote";
@@ -152,10 +159,14 @@ function createCombinedAbortSignal(timeoutSignal: AbortSignal, externalSignal?: 
   };
 }
 
-function normalizeMuseRagUrl(url: string, fallbackHost?: string) {
+function normalizeMuseRagUrl(
+  url: string,
+  fallbackHost?: string,
+  preserveLoopback = false,
+) {
   const trimmedUrl = url.trim().replace(/\/$/, '');
 
-  if (!fallbackHost || !isLanOrLoopbackHost(fallbackHost)) {
+  if (preserveLoopback || !fallbackHost || !isLanOrLoopbackHost(fallbackHost)) {
     return trimmedUrl;
   }
 
@@ -181,6 +192,7 @@ export function resolveMuseRagUrl() {
     expoConfig?: {
       extra?: {
         museRagUrl?: string;
+        museRagUseAdbReverse?: boolean;
       };
     };
     manifest2?: {
@@ -200,13 +212,20 @@ export function resolveMuseRagUrl() {
   const host = hostUri.split(':')[0];
 
   const configExtraUrl = constantsWithExtras.expoConfig?.extra?.museRagUrl;
+  const useAdbReverse =
+    constantsWithExtras.expoConfig?.extra?.museRagUseAdbReverse ??
+    process.env.EXPO_PUBLIC_MUSERAG_USE_ADB_REVERSE === "1";
   if (configExtraUrl) {
-    return normalizeMuseRagUrl(configExtraUrl, host || undefined);
+    return normalizeMuseRagUrl(
+      configExtraUrl,
+      host || undefined,
+      useAdbReverse,
+    );
   }
 
   const envUrl = process.env.EXPO_PUBLIC_MUSERAG_URL;
   if (envUrl) {
-    return normalizeMuseRagUrl(envUrl, host || undefined);
+    return normalizeMuseRagUrl(envUrl, host || undefined, useAdbReverse);
   }
 
   if (host) {
@@ -227,9 +246,91 @@ export function resolveMuseRagMode(): MuseRagMode {
   const configuredMode =
     constantsWithExtras.expoConfig?.extra?.museRagMode ??
     process.env.EXPO_PUBLIC_MUSERAG_MODE ??
-    "local";
+    "remote";
 
   return configuredMode.trim().toLowerCase() === "remote" ? "remote" : "local";
+}
+
+export function resolveMuseRagAllowLocalFallback() {
+  const constantsWithExtras = Constants as typeof Constants & {
+    expoConfig?: {
+      extra?: {
+        museRagAllowLocalFallback?: boolean;
+      };
+    };
+  };
+  const configuredValue =
+    constantsWithExtras.expoConfig?.extra?.museRagAllowLocalFallback ??
+    process.env.EXPO_PUBLIC_MUSERAG_ALLOW_LOCAL_FALLBACK;
+
+  if (typeof configuredValue === "boolean") {
+    return configuredValue;
+  }
+  return configuredValue !== "0";
+}
+
+export function resolveMuseRagRemoteTts() {
+  const constantsWithExtras = Constants as typeof Constants & {
+    expoConfig?: {
+      extra?: {
+        museRagRemoteTts?: boolean;
+      };
+    };
+  };
+  const configuredValue =
+    constantsWithExtras.expoConfig?.extra?.museRagRemoteTts ??
+    process.env.EXPO_PUBLIC_MUSERAG_REMOTE_TTS;
+
+  if (typeof configuredValue === "boolean") {
+    return resolveMuseRagMode() === "remote" && configuredValue;
+  }
+  return resolveMuseRagMode() === "remote" && configuredValue !== "0";
+}
+
+export async function synthesizeMuseRagSpeech(
+  text: string,
+): Promise<MuseRagSpeechResponse> {
+  if (resolveMuseRagMode() !== "remote" || !resolveMuseRagRemoteTts()) {
+    throw new Error("TTS remoto deshabilitado.");
+  }
+  const baseUrl = resolveMuseRagUrl();
+  if (!baseUrl) {
+    throw new Error("No hay una URL de MuseRAG para solicitar audio.");
+  }
+
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 15000);
+  try {
+    const response = await fetch(`${baseUrl}/api/voz`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: timeoutController.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`TTS remoto no disponible. HTTP ${response.status}`);
+    }
+    const payload = (await response.json()) as {
+      audio_path?: string;
+      provider?: string;
+      voice?: string;
+      cached?: boolean;
+    };
+    if (!payload.audio_path) {
+      throw new Error("MuseRAG no devolvió una ruta de audio.");
+    }
+    const audioUrl = payload.audio_path.startsWith("http")
+      ? payload.audio_path
+      : `${baseUrl}${payload.audio_path.startsWith("/") ? "" : "/"}${payload.audio_path}`;
+    return {
+      audioUrl,
+      provider: payload.provider ?? "google",
+      voice: payload.voice ?? "",
+      cached: Boolean(payload.cached),
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagResponse> {
@@ -244,6 +345,10 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
 
   const baseUrl = resolveMuseRagUrl();
   if (!baseUrl) {
+    if (resolveMuseRagAllowLocalFallback()) {
+      console.log("[MuseRAG][local-fallback]", { reason: "missing-base-url" });
+      return askLocalMuseRag(params);
+    }
     throw new Error(
       'No encontre la URL de MuseRAG. Reinicia Expo para que lea el archivo .env o define EXPO_PUBLIC_MUSERAG_URL con una IP accesible desde tu celular.'
     );
@@ -251,7 +356,7 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
 
   const payload = {
     pregunta: params.question,
-    museo: params.museumSlug ?? 'tumbas-reales-de-sipan',
+    museo: params.museumSlug ?? 'museo_eduardo_de_habich_uni',
     sala: params.roomId,
     obra: params.artworkId ?? params.artworkName,
     modo: params.responseMode ?? 'breve',
@@ -299,9 +404,19 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
         throw new Error('Consulta cancelada.');
       }
 
+      if (resolveMuseRagAllowLocalFallback()) {
+        console.log("[MuseRAG][local-fallback]", { reason: "remote-timeout" });
+        return askLocalMuseRag({ ...params, signal: undefined });
+      }
+
       throw new Error(
         'La consulta supero el tiempo de espera. Puedes intentarlo de nuevo o hacer una pregunta mas puntual.'
       );
+    }
+
+    if (resolveMuseRagAllowLocalFallback()) {
+      console.log("[MuseRAG][local-fallback]", { reason: "network-error" });
+      return askLocalMuseRag({ ...params, signal: undefined });
     }
 
     throw new Error(
@@ -322,6 +437,13 @@ export async function askMuseRag(params: MuseRagQueryParams): Promise<MuseRagRes
   });
 
   if (!response.ok) {
+    if (resolveMuseRagAllowLocalFallback()) {
+      console.log("[MuseRAG][local-fallback]", {
+        reason: "remote-http-error",
+        status: response.status,
+      });
+      return askLocalMuseRag({ ...params, signal: undefined });
+    }
     throw new Error(rawBody || `No se pudo consultar MuseRAG. HTTP ${response.status}`);
   }
 

@@ -45,14 +45,16 @@ inmersiva.
 
 ```text
 Inicio -> museo -> preparacion -> Home
-Home + SALA_1 -> obra sugerida / explorar / QR
+Home + SALA_1/SALA_2/SALA_3 -> obra sugerida / explorar / QR
 QR -> AR contextual si hay GLB -> fallback si no hay modelo
 Home + SALA_VR -> lista de experiencias -> carga -> sala inmersiva
 Obra o AR -> escuchar / preguntar -> MuseRAG
 ```
 
-El museo piloto tiene `SALA_1` con 6 zonas/obras y `SALA_VR` con experiencias
-inmersivas. El simulador de `iot-museiq` debe producir el mismo contrato que BLE.
+El museo piloto tiene tres salas normales: `SALA_1` Conocimiento de la UNI con
+4 piezas, `SALA_2` Minerales del Peru con 10 muestras y `SALA_3` Culturas
+antiguas con 6 recursos; `SALA_VR` conserva las experiencias inmersivas. El
+simulador de `iot-museiq` debe producir el mismo contrato que BLE.
 
 ## Contratos entre repositorios
 
@@ -65,6 +67,23 @@ inmersivas. El simulador de `iot-museiq` debe producir el mismo contrato que BLE
   `lib/immersive-experiences.generated.ts`.
 - `lib/ar-artwork-experiences.ts`, `lib/artwork-models.ts`, `lib/qr-codes.ts`,
   `datos.ts` y `content/museum.json` deben mantener IDs compatibles.
+
+## Harness distribuido
+
+Este repositorio es el nodo orquestador `museiqApp`. Su manifiesto
+`harness/manifest.json` declara a `iot-museiq` como proveedor de
+`museiq.location.v1` y a `museRAG` como proveedor de
+`museiq.knowledge.v1`. Comprueba el conocimiento de pares y la topologia con:
+
+```bash
+node harness/doctor.mjs --offline
+cd ../museiq-harness && python3 -m museiq_harness topology
+```
+
+La comunicacion de runtime debe conservar estas rutas:
+`iot-museiq -> museiqApp` para ubicacion y `museiqApp -> museRAG` para
+preguntas. Si cambia un endpoint, variable o payload, actualiza el manifiesto y
+el contrato compartido en el mismo trabajo.
 
 No edites a mano archivos `*.generated.ts` salvo una correccion de emergencia;
 prefiere corregir Muse3D y regenerar.

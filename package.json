@@ -12,6 +12,7 @@
     "android:release:prepare": "APP_VARIANT=production npx expo prebuild --platform android --no-install",
     "android:release": "npm run android:release:prepare && cd android && APP_VARIANT=production NODE_ENV=production ./gradlew --no-daemon --max-workers=2 -PreactNativeArchitectures=arm64-v8a :app:assembleRelease",
     "android:release:install": "adb install -r android/app/build/outputs/apk/release/app-release.apk",
+    "docs:qr": "node ./scripts/generate-artwork-qr-sheet.mjs",
     "wsl:portproxy": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/expo-wsl-portproxy.ps1",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
@@ -30,6 +31,7 @@
     "buffer": "^6.0.3",
     "expo": "~54.0.33",
     "expo-asset": "~12.0.13",
+    "expo-audio": "~1.1.1",
     "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",
@@ -64,10 +66,12 @@
     "three": "^0.184.0"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@types/react": "~19.1.0",
     "@types/three": "^0.184.1",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "qrcode": "^1.5.4",
     "typescript": "~5.9.2"
   },
   "private": true

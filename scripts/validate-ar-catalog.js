@@ -4,49 +4,45 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const projectRoot = path.resolve(__dirname, "..");
-const datosPath = path.join(projectRoot, "datos.ts");
 const modelMapPath = path.join(projectRoot, "lib", "artwork-models.ts");
 const arExperiencePath = path.join(projectRoot, "lib", "ar-artwork-experiences.ts");
+
+const MVP_CATALOG = [
+  ["obra-1-1-L", "SALA_1", 1, "Escritorio histórico y legado de Habich"],
+  ["obra-1-1-C", "SALA_1", 2, "Máquina de escribir de la Sala República"],
+  ["obra-1-1-R", "SALA_1", 3, "Busto de Miguel Grau"],
+  ["obra-1-2-L", "SALA_1", 4, "Busto de José de San Martín"],
+  ["mineral-bornita", "SALA_2", 1, "Bornita"],
+  ["mineral-esfalerita", "SALA_2", 2, "Esfalerita"],
+  ["mineral-magnetita", "SALA_2", 3, "Magnetita"],
+  ["mineral-wolframita", "SALA_2", 4, "Wolframita"],
+  ["mineral-azurita", "SALA_2", 5, "Azurita"],
+  ["obra-1-2-C", "SALA_2", 6, "Malaquita y cobre"],
+  ["mineral-galena", "SALA_2", 7, "Galena"],
+  ["mineral-oro", "SALA_2", 8, "Muestra rotulada como oro"],
+  ["mineral-pirita", "SALA_2", 9, "Pirita"],
+  ["mineral-plata", "SALA_2", 10, "Muestra rotulada como plata"],
+  ["cultura-musico-moche", "SALA_3", 1, "Músico moche"],
+  ["cultura-botella-chimu", "SALA_3", 2, "Botella Chimú-Lambayeque"],
+  ["obra-1-2-R", "SALA_3", 3, "Aríbalo inca de referencia"],
+  ["cultura-asiento-inca", "SALA_3", 4, "Asiento del Inca de referencia"],
+  ["cultura-botella-chavin", "SALA_3", 5, "Botella Chavín 204002"],
+  ["cultura-obelisco-tello", "SALA_3", 6, "Obelisco Tello de referencia"],
+].map(([id, roomId, order, title]) => ({
+  id,
+  order,
+  qrCode: `${roomId}-${String(order).padStart(2, "0")}`,
+  roomId,
+  title,
+}));
 
 function readFile(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
 
-function extractArtworks(datosSource) {
-  const artworkRegex =
-    /id:\s*"(?<id>obra-[^"]+)"[\s\S]*?roomId:\s*"(?<roomId>[^"]+)"[\s\S]*?order:\s*(?<order>\d+)[\s\S]*?title:\s*"(?<title>[^"]+)"/g;
-  const artworks = [];
-
-  for (const match of datosSource.matchAll(artworkRegex)) {
-    artworks.push({
-      id: match.groups.id,
-      order: Number(match.groups.order),
-      qrCode: `${match.groups.roomId}-${String(Number(match.groups.order)).padStart(2, "0")}`,
-      roomId: match.groups.roomId,
-      title: match.groups.title,
-    });
-  }
-
-  return artworks;
-}
-
-function extractMvpCatalogFilter(datosSource) {
-  const roomMatch = datosSource.match(/MVP_NORMAL_ROOM_ID\s*=\s*"(?<roomId>[^"]+)"/);
-  const maxOrderMatch = datosSource.match(/MVP_NORMAL_ROOM_MAX_ORDER\s*=\s*(?<maxOrder>\d+)/);
-
-  if (!roomMatch?.groups?.roomId || !maxOrderMatch?.groups?.maxOrder) {
-    return undefined;
-  }
-
-  return {
-    maxOrder: Number(maxOrderMatch.groups.maxOrder),
-    roomId: roomMatch.groups.roomId,
-  };
-}
-
 function extractArtworkModels(modelSource) {
   const modelRegex =
-    /"(?<artworkId>obra-[^"]+)":\s*{[\s\S]*?label:\s*"(?<label>[^"]+)"/g;
+    /^\s{2}"(?<artworkId>[^"]+)":\s*{[^\n]*?(?:\n[\s\S]*?)?label:\s*"(?<label>[^"]+)"/gm;
   const models = new Map();
 
   for (const match of modelSource.matchAll(modelRegex)) {
@@ -78,14 +74,7 @@ function groupBy(items, getKey) {
   }, new Map());
 }
 
-const datosSource = readFile(datosPath);
-const mvpFilter = extractMvpCatalogFilter(datosSource);
-const allArtworks = extractArtworks(datosSource);
-const artworks = mvpFilter
-  ? allArtworks.filter(
-      (artwork) => artwork.roomId === mvpFilter.roomId && artwork.order <= mvpFilter.maxOrder,
-    )
-  : allArtworks;
+const artworks = MVP_CATALOG;
 const artworkModels = extractArtworkModels(readFile(modelMapPath));
 const arOverrides = extractArOverrides(readFile(arExperiencePath));
 
@@ -112,11 +101,7 @@ const readyRows = artworks.map((artwork) => {
 console.log("\nMuseIQ AR catalog QA");
 console.log("====================");
 console.log(`Obras detectadas: ${artworks.length}`);
-if (mvpFilter) {
-  console.log(
-    `Filtro MVP: ${mvpFilter.roomId} orden <= ${mvpFilter.maxOrder} (${allArtworks.length} obras fuente)`,
-  );
-}
+console.log("Salas MVP: SALA_1, SALA_2 y SALA_3");
 console.log(`Modelos registrados: ${artworkModels.size}`);
 console.log(`Overrides AR: ${arOverrides.size}`);
 console.log(`QR duplicados: ${duplicateQrCodes.length}`);

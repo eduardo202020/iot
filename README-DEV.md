@@ -6,9 +6,9 @@ Guía técnica de MuseIQ para desarrollo local, pruebas de sala, integración co
 
 El proyecto está validado con este escenario de prueba:
 
-- una sala normal en la app: `SALA_1`
-- seis obras activas en `SALA_1`
-- tres beacons ESP32 de sala normal: `S1`, `S2` y `S3`
+- tres salas normales en la app: `SALA_1`, `SALA_2` y `SALA_3`
+- veinte piezas activas: 4 de conocimiento UNI, 10 minerales y 6 de culturas antiguas
+- tres beacons ESP32 de sala normal: `S1`, `S2` y `S3`, uno por sala
 - una sala inmersiva: `SALA_VR`
 - un beacon ESP32 para modo inmersivo: `S4`
 - detección visible en Home, sugerencia probable de obra y entrada a modo VR
@@ -16,11 +16,11 @@ El proyecto está validado con este escenario de prueba:
 Para pruebas rápidas, el scanner acepta fallback por nombre BLE:
 
 - `S1-M1` -> `SALA_1-B01`
-- `S1-M2` -> `SALA_1-B02`
-- `S1-M3` -> `SALA_1-B03`
+- `S2-M1` -> `SALA_2-B01`
+- `S3-M1` -> `SALA_3-B01`
 - `S1` -> `SALA_1-B01`
-- `S2` -> `SALA_1-B02`
-- `S3` -> `SALA_1-B03`
+- `S2` -> `SALA_2-B02`
+- `S3` -> `SALA_3-B03`
 - `S4` -> `SALA_VR-B04`
 - `VR-M4`, `SVR-M4` o `SALA_VR-M4` -> `SALA_VR-B04`
 
@@ -32,6 +32,7 @@ Para pruebas rápidas, el scanner acepta fallback por nombre BLE:
 - TypeScript
 - `react-native-ble-plx`
 - `expo-speech`
+- `expo-audio` para reproducir TTS neural servido por MuseRAG
 - `expo-speech-recognition`
 - `expo-sensors`
 - `expo-camera`
@@ -75,13 +76,13 @@ Referencia rápida: [ARCHITECTURE.md](ARCHITECTURE.md)
 ## Flujo de la app
 
 1. El usuario entra al recorrido y la app detecta contexto físico mediante BLE y sensores.
-2. En `SALA_1`, BLE estima la fila/zona y la orientacion ayuda a elegir obra izquierda/derecha como hipótesis.
+2. Los beacons `S1`, `S2` y `S3` seleccionan la sala temática; la app propone una pieza y el visitante puede explorar el catálogo completo de esa sala.
 3. El QR fisico confirma la obra exacta y abre el GLB contextual cuando existe.
 4. En `SALA_VR`, el beacon `S4` activa la lista de experiencias inmersivas.
 5. El usuario puede abrir chat por texto o voz desde obra, AR o flujo contextual.
 6. La app envía la consulta a MuseRAG con museo, sala, obra, modo de respuesta y contexto de la obra.
 7. La respuesta vuelve con texto, metadatos y, cuando hay fuentes, imágenes asociadas.
-8. El usuario puede escuchar la respuesta y seguir el texto mientras se reproduce.
+8. El usuario puede escuchar la respuesta con TTS neural remoto; si no está disponible, la app usa `expo-speech` y conserva los subtítulos.
 
 En el flujo AR/3D actual:
 
@@ -105,6 +106,7 @@ En la raíz del proyecto crea `.env` con la URL accesible desde el móvil:
 
 ```env
 EXPO_PUBLIC_MUSERAG_URL=http://192.168.1.10:8000
+EXPO_PUBLIC_MUSERAG_REMOTE_TTS=1
 ```
 
 Para el MVP Raspberry Pi, puedes partir de `.env.raspberry.example` y reemplazar
@@ -260,38 +262,59 @@ Payload esperado en `serviceData`:
 Room ID (UTF-8) + Beacon Node (1 byte) + FW Major (1 byte) + FW Minor (1 byte) + TX Power (1 byte signed) + Battery mV (2 bytes little-endian)
 ```
 
-Para el MVP, los `Room ID` esperados son `SALA_1` y `SALA_VR`. En `SALA_1`, `Beacon Node` 1, 2 y 3 representan las tres franjas de la sala normal. En `SALA_VR`, `Beacon Node` 4 representa la zona que habilita modo inmersivo.
+Para el MVP, los `Room ID` esperados son `SALA_1`, `SALA_2`, `SALA_3` y `SALA_VR`. Los nodos 1, 2 y 3 representan respectivamente las salas UNI, minerales y culturas antiguas. En `SALA_VR`, `Beacon Node` 4 habilita el modo inmersivo.
 
 ### Simulador BLE desde iot-museiq
 
 Para probar el recorrido sin ESP32 físicos:
 
 ```bash
-cd /home/eduardo/proyectos/MuseIQ/iot-museiq
+cd /home/eduardo/proyectos/museiq/iot-museiq
 python dev_location_bridge.py --host 0.0.0.0 --port 8787
 ```
 
 Luego inicia la app:
 
 ```bash
-cd /home/eduardo/proyectos/MuseIQ/museApp
-npx expo start --dev-client --host lan -c
+cd /home/eduardo/proyectos/museiq/museiqApp
+EXPO_PUBLIC_MUSEIQ_HARNESS_MODE=1 npx expo start --dev-client --host lan -c
 ```
 
-La app intenta leer automáticamente `http://<IP_DE_METRO>:8787/state`. Si necesitas fijar la URL:
+El sondeo HTTP solo se habilita con `EXPO_PUBLIC_MUSEIQ_HARNESS_MODE=1`; sin
+esa variable, BLE fisico sigue siendo la fuente predeterminada. En modo harness
+la app intenta leer `http://<IP_DE_METRO>:8787/state`. Para fijar la URL:
 
 ```bash
-EXPO_PUBLIC_MUSEIQ_BLE_SIM_URL=http://<IP_PC>:8787 npx expo start --dev-client --host lan -c
+EXPO_PUBLIC_MUSEIQ_HARNESS_MODE=1 \
+EXPO_PUBLIC_MUSEIQ_BLE_SIM_URL=http://<IP_PC>:8787 \
+npx expo start --dev-client --host lan -c
 ```
 
 Comandos del bridge:
 
-- `1..6`: simula `SALA_1` con una zona/obra exacta.
+- `u1..u4`: simula una pieza exacta de Conocimiento de la UNI.
+- `m1..m10`: simula una muestra exacta de Minerales del Perú.
+- `c1..c6`: simula un recurso exacto de Culturas antiguas del Perú.
 - `vr` o `s4`: simula `SALA_VR` y habilita modo inmersivo.
 - `clear`: pausa la ubicación simulada y deja que BLE real vuelva a dominar.
 - `status`: imprime el estado JSON que consume la app.
 
-Cuando el bridge está activo, su beacon simulado domina sobre el scanner BLE real. Si el bridge se apaga o queda en `clear`, la app vuelve al comportamiento BLE normal.
+Cuando el modo harness esta habilitado y el bridge expone una ubicacion, su
+beacon simulado domina sobre el scanner BLE real. Si el bridge se apaga o queda
+en `clear`, la app vuelve al comportamiento BLE normal.
+
+El nodo local de integracion conoce tanto al proveedor IoT como a MuseRAG. Se
+pueden validar sus manifiestos sin servicios activos o comprobar conectividad
+HTTP real:
+
+```bash
+node harness/doctor.mjs --offline
+node harness/doctor.mjs
+cd ../museiq-harness && python3 -m museiq_harness topology
+```
+
+Consulta [harness/README.md](harness/README.md) para las variables, filtros de
+servicio y limites del diagnostico ejecutado desde la maquina de desarrollo.
 
 ## Features actuales
 

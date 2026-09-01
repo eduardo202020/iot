@@ -1,29 +1,50 @@
 {
   "SALA_1": {
-    "name": "Sala 1",
-    "Z1": {
-      "title": "Zona 1 - Musico Moche",
-      "narration": "Has entrado a la Sala 1. La primera pieza es un musico Moche modelado en ceramica, testimonio del papel de la musica en ceremonias y actividades colectivas."
+    "name": "Conocimiento de la UNI",
+    "narration": "Esta sala reúne historia institucional, cultura material y memoria republicana vinculadas con la Universidad Nacional de Ingeniería. Cuando una ficha no confirma autor, fecha, material o procedencia, MuseIQ lo señala de forma explícita.",
+    "U1": {
+      "title": "Habich y la Escuela de Ingenieros",
+      "narration": "La Escuela de Ingenieros Civiles y de Minas se organizó en 1876 para formar especialistas requeridos por el país, bajo la dirección de Eduardo de Habich. El escritorio digitalizado introduce esta historia sin atribuirle una procedencia no verificada."
     },
-    "Z2": {
-      "title": "Zona 2 - Botella Chimu-Lambayeque",
-      "narration": "Esta zona presenta una botella escultorica Chimu-Lambayeque. Observa la figura animal modelada y compara su acabado con la ceramica Moche de la zona anterior."
+    "U2": {
+      "title": "Tecnologías documentales",
+      "narration": "La máquina de escribir permite observar teclado, carro y mecanismos de una tecnología anterior al computador. La marca Underwood es visible, pero modelo, fecha y procedencia deben validarse con el inventario."
     },
-    "Z3": {
-      "title": "Zona 3 - Aribalo inca",
-      "narration": "El recorrido continua con un aribalo inca. Su cuello alto, sus asas y su base conica responden a necesidades de transporte, almacenamiento y organizacion."
+    "U3": {
+      "title": "Memoria republicana",
+      "narration": "Los bustos de Miguel Grau y José de San Martín permiten comparar uniforme, pedestal, postura y tratamiento del rostro. Las fichas de autor, fecha y material siguen pendientes."
+    }
+  },
+  "SALA_2": {
+    "name": "Minerales del Perú",
+    "narration": "Diez muestras 3D permiten observar color, textura, forma y brillo. Los nombres proceden de los archivos aportados para el MVP; la procedencia y la identificación de cada pieza deben confirmarse con fichas mineralógicas del museo.",
+    "M1": {
+      "title": "Minerales vinculados con el cobre",
+      "narration": "Bornita, azurita y malaquita se comparan visualmente. INGEMMET aporta contexto sobre las propiedades y usos del cobre, pero no sustituye el análisis o inventario de cada muestra."
     },
-    "Z4": {
-      "title": "Zona 4 - Asiento del Inca",
-      "narration": "Frente a ti aparece un asiento ceremonial de piedra. La pieza permite observar como la autoridad inca tambien se construia mediante arquitectura y posicion en el espacio."
+    "M2": {
+      "title": "Texturas, caras y brillos",
+      "narration": "Esfalerita, magnetita, wolframita, galena y pirita muestran superficies distintas. El modelo 3D sirve para formular observaciones, no para certificar composición o yacimiento."
     },
-    "Z5": {
-      "title": "Zona 5 - Botella Chavin",
-      "narration": "Esta botella Chavin de superficie negra pulida presenta felinos estilizados en el asa, el gollete y el cuerpo. Recorre sus detalles para reconocer la composicion."
+    "M3": {
+      "title": "Oro y plata",
+      "narration": "Los archivos rotulados como oro y plata se presentan con cautela. La guía de INGEMMET documenta propiedades y usos generales de esos metales, mientras la ficha particular de las muestras permanece pendiente."
+    }
+  },
+  "SALA_3": {
+    "name": "Culturas antiguas del Perú",
+    "narration": "Esta sala usa seis modelos 3D de referencia para comparar recursos rotulados como moche, Chimú-Lambayeque, inca y Chavín. MuseIQ distingue entre un referente cultural documentado y una pieza física inventariada en el museo.",
+    "C1": {
+      "title": "Costa norte",
+      "narration": "El músico moche y la botella Chimú-Lambayeque permiten observar personaje, instrumento, cuerpo, gollete y representación escultórica sin inventar procedencia o historia de colección."
     },
-    "Z6": {
-      "title": "Zona 6 - Obelisco Tello",
-      "narration": "El recorrido cierra con el Obelisco Tello. Sus cuatro caras articulan seres, plantas y rasgos animales en una composicion monumental y entrelazada."
+    "C2": {
+      "title": "Mundo inca",
+      "narration": "El aríbalo muestra una forma documentada de la cerámica estatal inca. El modelo nombrado Asiento del Inca se usa como comparación lítica y mantiene pendiente su ubicación y función exactas."
+    },
+    "C3": {
+      "title": "Tradición Chavín",
+      "narration": "La botella 204002 y el modelo del Obelisco Tello permiten pasar de un objeto portátil a una referencia monumental y recorrer sus superficies desde varios ángulos."
     }
   }
 }
